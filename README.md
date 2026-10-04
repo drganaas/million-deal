@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+﻿# Million Deal | صفقة المليون
 
-## Getting Started
+Next.js 14 crypto signals desk with a 5-strategy smart engine.
 
-First, run the development server:
+## Stack
+
+- Next.js 14 + TypeScript + Tailwind
+- Supabase Auth (Magic Link / Email OTP)
+- Binance REST + WebSocket (`wss://stream.binance.com:9443`)
+- Bybit + OKX secondary prices
+- CoinGecko metadata
+- TradingView Lightweight Charts v4
+- Zustand
+
+## Setup
 
 ```bash
+npm install
+cp .env.local.example .env.local
+# fill Supabase keys for real Magic Link
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Preview: http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Demo login (without Supabase): enter any email → code `123456`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Strategies (`calculateSmartEntry`)
 
-## Learn More
+1. Hidden Candle
+2. Liquidity Grab
+3. SMC + BOS/CHOCH
+4. Volume + Momentum
+5. Bottom Detector
 
-To learn more about Next.js, take a look at the following resources:
+Show only if **≥ 3/5** agree. 4/5 → 90%+ success rate.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Disclaimer
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Educational analysis only — not financial advice.

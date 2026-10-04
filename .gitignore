@@ -19,6 +19,9 @@
 # misc
 .DS_Store
 *.pem
+.vite/
+_vite_backup/
+_scan_result.json
 
 # debug
 npm-debug.log*
@@ -27,6 +30,7 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env
 
 # vercel
 .vercel
