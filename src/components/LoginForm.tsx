@@ -117,6 +117,21 @@ export function LoginForm() {
 
       {mode === "magic" ? <p className="mt-3 text-sm text-teal">{msg}</p> : null}
       {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
+
+      <div className="mt-5 space-y-2 border-t border-line pt-4 text-center text-xs text-muted">
+        <p>
+          دخول المشتركين من هنا · بعد التأكيد يفتح{" "}
+          <a className="text-gold underline" href="/dashboard">
+            التطبيق / الداشبورد
+          </a>
+        </p>
+        <p>
+          المالك؟{" "}
+          <a className="font-semibold text-gold underline" href="/admin">
+            لوحة المالك وإدارة المشتركين
+          </a>
+        </p>
+      </div>
     </div>
   );
 }

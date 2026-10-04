@@ -80,6 +80,12 @@ export function Dashboard() {
           </div>
           <div className="ms-auto flex flex-wrap items-center gap-2 text-sm">
             <span className="text-muted">{email}</span>
+            <a
+              href="/admin"
+              className="inline-flex items-center gap-1 rounded-full border border-gold/40 px-3 py-1.5 text-gold hover:border-gold"
+            >
+              المالك
+            </a>
             <button
               type="button"
               onClick={() => void refresh()}
