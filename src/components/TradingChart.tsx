@@ -21,9 +21,11 @@ type Levels = {
 export function TradingChart({
   candles,
   levels,
+  height = 460,
 }: {
   candles: Candle[];
   levels?: Levels;
+  height?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -33,18 +35,18 @@ export function TradingChart({
     if (!ref.current) return;
     const chart = createChart(ref.current, {
       layout: {
-        background: { type: ColorType.Solid, color: "#0c1218" },
+        background: { type: ColorType.Solid, color: "#0b0e11" },
         textColor: "#8b9aab",
       },
       grid: {
-        vertLines: { color: "#1a2430" },
-        horzLines: { color: "#1a2430" },
+        vertLines: { color: "#161b22" },
+        horzLines: { color: "#161b22" },
       },
       rightPriceScale: { borderColor: "#243140" },
       timeScale: { borderColor: "#243140" },
       crosshair: { mode: 1 },
       width: ref.current.clientWidth,
-      height: 380,
+      height,
     });
     const series = chart.addCandlestickSeries({
       upColor: "#1dbf73",
@@ -67,7 +69,7 @@ export function TradingChart({
       chartRef.current = null;
       seriesRef.current = null;
     };
-  }, []);
+  }, [height]);
 
   useEffect(() => {
     if (!seriesRef.current || !candles.length) return;

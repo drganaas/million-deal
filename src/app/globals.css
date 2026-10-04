@@ -8,8 +8,10 @@
 
 body {
   background:
-    radial-gradient(900px 420px at 50% -80px, rgba(212, 160, 23, 0.1), transparent 55%),
-    linear-gradient(180deg, #0e151c, #0a0f14);
+    radial-gradient(1000px 480px at 80% -120px, rgba(212, 160, 23, 0.12), transparent 55%),
+    radial-gradient(800px 400px at 10% 0%, rgba(29, 191, 115, 0.06), transparent 50%),
+    linear-gradient(180deg, #0e151c 0%, #0a0f14 40%, #070b10 100%);
+  min-height: 100vh;
 }
 
 * {
@@ -18,4 +20,25 @@ body {
 
 button:not(:disabled) {
   cursor: pointer;
+}
+
+@keyframes ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #243140;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }

@@ -8,7 +8,7 @@ export default function HomePage() {
           <p className="text-xs tracking-[0.25em] text-gold uppercase">Million Deal</p>
           <h1 className="mt-2 text-3xl font-bold text-fg md:text-4xl">صفقة المليون</h1>
           <p className="mt-2 text-sm text-muted">
-            5 استراتيجيات في محرك واحد · دخول · TP1/TP2/TP3 · وقف ديناميكي · نسبة نجاح
+            4 استراتيجيات منفصلة · شموع · مؤشرات · قمم/قيعان/زيرو · اختراق · TP/SL ديناميكي
           </p>
         </div>
         <LoginForm />

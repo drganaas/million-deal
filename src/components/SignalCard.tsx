@@ -22,8 +22,10 @@ export function SignalCard({
     <button
       type="button"
       onClick={onSelect}
-      className={`w-full rounded-xl border p-3 text-start transition ${
-        active ? "border-gold bg-gold/10" : "border-line bg-surface hover:bg-raised"
+      className={`w-full rounded-2xl border p-3 text-start transition ${
+        active
+          ? "border-gold bg-gradient-to-br from-gold/15 to-transparent shadow-[0_0_24px_rgba(212,160,23,0.12)]"
+          : "border-line bg-surface hover:border-gold/40 hover:bg-raised"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
@@ -32,15 +34,27 @@ export function SignalCard({
           <p className="font-mono text-xs text-muted">{fmt(signal.last)}</p>
         </div>
         <div className="text-end">
-          <p className="font-mono text-lg text-gold-soft">{signal.successRate}%</p>
-          <p className="text-[10px] uppercase tracking-wide text-muted">{signal.agreeCount}/5</p>
+          <p className="font-mono text-lg font-bold text-gold-soft">{signal.successRate}%</p>
+          <p className="text-[10px] uppercase tracking-wide text-muted">{signal.agreeCount}/4</p>
         </div>
       </div>
-      <div className="mt-2 grid grid-cols-2 gap-1 text-[11px] text-muted">
-        <span>قاع: {signal.bottomType}</span>
-        <span>بعد: {signal.distanceFromBottomPct}%</span>
-        <span>سيولة: {signal.liquidity.totalScore}</span>
-        <span>شمعة: {signal.candlePattern}</span>
+      <div className="mt-2 flex flex-wrap gap-1">
+        {signal.pillars.map((p) => (
+          <span
+            key={p.id}
+            className={`rounded px-1.5 py-0.5 text-[10px] ${
+              p.pass ? "bg-teal/15 text-teal" : "bg-inset text-muted"
+            }`}
+          >
+            {p.id === "candles"
+              ? "شموع"
+              : p.id === "indicators"
+                ? "مؤشرات"
+                : p.id === "peaks_zero"
+                  ? "زيرو"
+                  : "اختراق"}
+          </span>
+        ))}
       </div>
     </button>
   );

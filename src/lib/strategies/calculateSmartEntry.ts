@@ -1,30 +1,12 @@
 import { atr, lastFinite, macd, roundPx, rsi, sma } from "../indicators";
-import type { Candle, CandlePattern, LiquidityInfo, SmartSignal } from "../types";
-import { detectBottom, strategyBottomDetector } from "./bottomDetector";
-import { strategyHiddenCandle } from "./hiddenCandle";
-import { strategyLiquidityGrab } from "./liquidityGrab";
-import { detectSmc, strategySmc } from "./smc";
-import { strategyVolumeMomentum } from "./volumeMomentum";
-
-function detectPattern(candles: Candle[]): CandlePattern {
-  const c = candles.at(-1);
-  const p = candles.at(-2);
-  if (!c || !p) return "Neutral";
-  const body = Math.abs(c.close - c.open);
-  const range = Math.max(c.high - c.low, 1e-12);
-  const lower = Math.min(c.open, c.close) - c.low;
-  const upper = c.high - Math.max(c.open, c.close);
-  if (lower >= body * 2 && upper <= body * 0.5) return "Hammer";
-  if (p.close < p.open && c.close > c.open && c.close >= p.open && c.open <= p.close) return "Bullish Engulfing";
-  if (body / range < 0.12) return "Doji";
-  if (lower >= range * 0.55 && c.close > c.open) return "Pin Bar";
-  if (body / range > 0.65 && c.close > c.open) return "Strong Bull";
-  const a = candles.at(-3);
-  if (a && a.close < a.open && Math.abs(p.close - p.open) / Math.max(p.high - p.low, 1e-12) < 0.3 && c.close > c.open && c.close > a.open) {
-    return "Morning Star";
-  }
-  return "Neutral";
-}
+import type { LiquidityInfo, SmartSignal } from "../types";
+import type { Candle } from "../types";
+import { strategyBreakoutSupport, analyzeBreakoutSupport } from "./breakoutSupport";
+import { detectBottom } from "./bottomDetector";
+import { detectCandlePattern, strategyCandles } from "./candlesStrategy";
+import { strategyIndicators } from "./indicatorsStrategy";
+import { analyzeZeroReversal, strategyPeaksBottomsZero } from "./peaksBottomsZero";
+import { detectSmc } from "./smc";
 
 export function calculateSmartEntry(args: {
   symbol: string;
@@ -37,19 +19,17 @@ export function calculateSmartEntry(args: {
   const { symbol, candles } = args;
   if (!candles || candles.length < 60) return null;
 
-  const votes = [
-    strategyHiddenCandle(candles),
-    strategyLiquidityGrab(candles),
-    strategySmc(candles),
-    strategyVolumeMomentum(candles),
-    strategyBottomDetector(candles),
+  const pillars = [
+    strategyCandles(candles),
+    strategyIndicators(candles),
+    strategyPeaksBottomsZero(candles),
+    strategyBreakoutSupport(candles),
   ];
-  const agreeCount = votes.filter((v) => v.pass).length;
+  const agreeCount = pillars.filter((v) => v.pass).length;
 
-  // Quality filter: hide if fewer than 3 strategies agree
-  if (agreeCount < 3) return null;
+  // Quality: need at least 2 of 4 pillars
+  if (agreeCount < 2) return null;
 
-  const successRate = agreeCount >= 4 ? Math.min(97, 90 + (agreeCount - 4) * 3) : 70 + (agreeCount - 3) * 5;
   const closes = candles.map((c) => c.close);
   const vols = candles.map((c) => c.volume);
   const last = args.last ?? candles.at(-1)!.close;
@@ -61,12 +41,13 @@ export function calculateSmartEntry(args: {
   const volumeRatio = (vols.at(-1) ?? 0) / volAvg;
   const bottom = detectBottom(candles);
   const smc = detectSmc(candles);
-  const pattern = detectPattern(candles);
+  const pattern = detectCandlePattern(candles);
+  const zeroReversal = analyzeZeroReversal(candles);
+  const breakout = analyzeBreakoutSupport(candles);
 
-  // Dynamic entry near retest of EMA20 / current close
   const entry = last;
   const riskBase = Math.max(atrVal * 1.25, last * 0.006);
-  const structureSl = bottom.currentLow - atrVal * 0.15;
+  const structureSl = Math.min(bottom.currentLow, zeroReversal.swingLow) - atrVal * 0.15;
   let sl = Math.min(entry - riskBase, structureSl);
   const maxRisk = entry * 0.015;
   if (entry - sl > maxRisk) sl = entry - maxRisk;
@@ -75,6 +56,9 @@ export function calculateSmartEntry(args: {
   const tp1 = entry + risk * 1.5;
   const tp2 = entry + risk * 2.5;
   const tp3 = entry + risk * 4;
+
+  const avgScore = pillars.reduce((a, p) => a + p.score, 0) / pillars.length;
+  const successRate = Math.min(97, Math.round(58 + agreeCount * 9 + avgScore * 0.12));
 
   return {
     symbol,
@@ -89,7 +73,8 @@ export function calculateSmartEntry(args: {
     tp3: roundPx(tp3),
     sl: roundPx(sl),
     successRate,
-    votes,
+    votes: pillars,
+    pillars,
     agreeCount,
     rsi: +r.toFixed(1),
     macdHist: +h0.toPrecision(4),
@@ -103,8 +88,13 @@ export function calculateSmartEntry(args: {
     distanceFromBottomPct: +bottom.distancePct.toFixed(2),
     smc,
     liquidity: args.liquidity ?? { bidDepth: 0, askDepth: 0, totalScore: 0 },
-    reasons: votes.filter((v) => v.pass).map((v) => v.name),
+    zeroReversal,
+    breakout,
+    reasons: pillars.filter((v) => v.pass).map((v) => v.name),
   };
 }
 
-export { strategyHiddenCandle, strategyLiquidityGrab, strategySmc, strategyVolumeMomentum, strategyBottomDetector };
+export { strategyCandles } from "./candlesStrategy";
+export { strategyIndicators } from "./indicatorsStrategy";
+export { strategyPeaksBottomsZero } from "./peaksBottomsZero";
+export { strategyBreakoutSupport } from "./breakoutSupport";
