@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { Crown, LogOut, Plus, Trash2, Users } from "lucide-react";
 
 const ADMIN_KEY = "md.admin";
@@ -14,7 +13,6 @@ type Subscriber = {
 };
 
 export function AdminPanel() {
-  const router = useRouter();
   const [authed, setAuthed] = useState(false);
   const [email, setEmail] = useState("owner@milliondeal.app");
   const [password, setPassword] = useState("");
