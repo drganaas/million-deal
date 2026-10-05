@@ -369,20 +369,58 @@ export function CandleScanStrip({
   hits,
   universe,
   watchlist,
+  running,
+  live,
+  onStart,
+  onStop,
   onPick,
   onWatch,
 }: {
   hits: LiveCandleHit[];
   universe: number;
   watchlist: string[];
+  running: boolean;
+  live: boolean;
+  onStart: () => void;
+  onStop: () => void;
   onPick: (symbol: string) => void;
   onWatch: (symbol: string) => void;
 }) {
   return (
     <div className="border-t border-line bg-inset px-3 py-2">
-      <div className="mb-1.5 flex items-center justify-between text-[11px] text-muted">
-        <span>بحث تلقائي لحظي · Binance WebSocket · كل الأزواج</span>
-        <span className="text-teal">{universe} زوج · {hits.length} نتيجة</span>
+      <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
+        <span>بحث تلقائي لحظي · شموع صاعدة · كل أزواج Binance</span>
+        <div className="flex items-center gap-2">
+          <span className={live && running ? "text-teal" : "text-danger"}>
+            {running ? (live ? "بث مباشر" : "يتصل…") : "متوقف"}
+            {" · "}
+            {universe} زوج · {hits.length} نتيجة
+          </span>
+          <button
+            type="button"
+            onClick={onStart}
+            disabled={running}
+            className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${
+              running
+                ? "cursor-not-allowed border-line text-muted opacity-50"
+                : "border-teal/50 bg-teal/15 text-teal hover:border-teal"
+            }`}
+          >
+            تشغيل البحث
+          </button>
+          <button
+            type="button"
+            onClick={onStop}
+            disabled={!running}
+            className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${
+              !running
+                ? "cursor-not-allowed border-line text-muted opacity-50"
+                : "border-danger/50 bg-danger/15 text-danger hover:border-danger"
+            }`}
+          >
+            إيقاف البحث
+          </button>
+        </div>
       </div>
       <div className="flex gap-1.5 overflow-x-auto pb-0.5">
         {hits.map((c) => {
@@ -417,7 +455,11 @@ export function CandleScanStrip({
             </div>
           );
         })}
-        {!hits.length ? <p className="py-1 text-[11px] text-muted">بانتظار شموع صاعدة من البث اللحظي…</p> : null}
+        {!hits.length ? (
+          <p className="py-1 text-[11px] text-muted">
+            {running ? "بانتظار شموع صاعدة من البث اللحظي…" : "البحث متوقف — اضغط تشغيل البحث"}
+          </p>
+        ) : null}
       </div>
     </div>
   );
