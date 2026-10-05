@@ -162,14 +162,14 @@ export function TradingChart({
     macdLineRef.current = macdLine;
     macdSigRef.current = macdSig;
 
-    const follow = (source: IChartApi, target: IChartApi) => (range: LogicalRange | null) => {
+    const follow = (target: IChartApi) => (range: LogicalRange | null) => {
       if (!range || syncing.current) return;
       syncing.current = true;
       target.timeScale().setVisibleLogicalRange(range);
       syncing.current = false;
     };
-    price.timeScale().subscribeVisibleLogicalRangeChange(follow(price, osc));
-    osc.timeScale().subscribeVisibleLogicalRangeChange(follow(osc, price));
+    price.timeScale().subscribeVisibleLogicalRangeChange(follow(osc));
+    osc.timeScale().subscribeVisibleLogicalRangeChange(follow(price));
 
     const resize = () => {
       if (priceEl.current) {

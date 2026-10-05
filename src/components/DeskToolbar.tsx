@@ -78,7 +78,6 @@ export function DeskToolbar({
   watchlist,
   onRemoveCoin,
   overlays,
-  onToggleOverlay,
   candleStrength,
   bullishHits,
 }: {
@@ -97,7 +96,6 @@ export function DeskToolbar({
   watchlist: string[];
   onRemoveCoin: (symbol: string) => void;
   overlays: { support: boolean; resistance: boolean; boost: boolean; bottoms: boolean };
-  onToggleOverlay: (key: keyof typeof overlays) => void;
   candleStrength: number;
   bullishHits: BullishHit[];
 }) {
@@ -200,7 +198,8 @@ export function DeskToolbar({
                 tradeKind === k.id ? "border-gold bg-gold/15 text-gold-soft" : "border-line text-muted"
               }`}
             >
-              <img src={k.src} alt="" className="h-3.5 w-3.5" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={k.src} alt={k.label} className="h-3.5 w-3.5" />
               {k.label}
             </button>
           ))}

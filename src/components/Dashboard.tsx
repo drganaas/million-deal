@@ -164,7 +164,7 @@ export function Dashboard() {
         /* keep selection even if scan vote is empty */
       }
     },
-    [interval, selected, setSelected, setSignals, signals],
+    [interval, setSelected, setSignals, signals],
   );
 
   const active = useMemo(
@@ -287,7 +287,6 @@ export function Dashboard() {
             watchlist={watchlist}
             onRemoveCoin={(s) => setWatchlist((p) => p.filter((x) => x !== s))}
             overlays={overlays}
-            onToggleOverlay={(key) => setOverlays((o) => ({ ...o, [key]: !o[key] }))}
             candleStrength={lastCandle && lastCandle.close > lastCandle.open ? candleStrength : 0}
             bullishHits={bullishHits}
           />
