@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, LogOut } from "lucide-react";
 import { CoinDetail } from "@/components/CoinDetail";
+import { DeskToolbar, type DeskToolId } from "@/components/DeskToolbar";
 import { LiveTicker } from "@/components/LiveTicker";
 import { MarketHeader } from "@/components/MarketHeader";
 import { ResultsBoard } from "@/components/ResultsBoard";
@@ -32,6 +33,7 @@ export function Dashboard() {
   const [detail, setDetail] = useState<SmartSignal | null>(null);
   const [email, setEmail] = useState("");
   const [wsLive, setWsLive] = useState(false);
+  const [activeTool, setActiveTool] = useState<DeskToolId | null>(null);
 
   useEffect(() => {
     try {
@@ -63,19 +65,33 @@ export function Dashboard() {
       const data = (await res.json()) as { ok: boolean; candles?: Candle[]; signal?: SmartSignal | null };
       if (!cancelled && data.ok) {
         setCandles(data.candles ?? []);
-        setDetail(data.signal ?? signals.find((s) => s.symbol === selected) ?? null);
+        setDetail(data.signal ?? null);
       }
     }
     void load();
     return () => {
       cancelled = true;
     };
-  }, [selected, signals, interval]);
+  }, [selected, interval]);
 
   const active = useMemo(
     () => detail ?? signals.find((s) => s.symbol === selected) ?? null,
     [detail, selected, signals],
   );
+
+  const chartLevels = useMemo(() => {
+    if (!active) return undefined;
+    return { entry: active.entry, sl: active.sl, tp1: active.tp1, tp2: active.tp2, tp3: active.tp3 };
+  }, [active]);
+
+  const lastCandle = candles.at(-1);
+  const candleStrength = lastCandle
+    ? Math.round(
+        (Math.abs(lastCandle.close - lastCandle.open) /
+          Math.max(lastCandle.high - lastCandle.low, 1e-12)) *
+          100,
+      )
+    : 0;
 
   return (
     <div className="min-h-screen bg-bg text-fg">
@@ -142,32 +158,22 @@ export function Dashboard() {
 
         <section className="space-y-4">
           <div className="overflow-hidden rounded-2xl border border-line bg-surface">
-            <div className="flex items-center justify-between border-b border-line px-4 py-2">
-              <p className="text-sm font-semibold text-gold-soft">
-                {selected.replace("USDT", "")}
-                <span className="text-muted"> · {interval}</span>
-              </p>
-              <div className="flex gap-3 text-[10px] text-muted">
-                <span className="inline-flex items-center gap-1">
-                  <img src="/icons/spot.svg" alt="" className="h-3.5 w-3.5" /> Spot
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <img src="/icons/scalping.svg" alt="" className="h-3.5 w-3.5" /> Scalp
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <img src="/icons/swing.svg" alt="" className="h-3.5 w-3.5" /> Swing
-                </span>
+            <div className="space-y-3 border-b border-line px-4 py-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-gold-soft">
+                  {selected.replace("USDT", "")}
+                  <span className="text-muted"> · {interval}</span>
+                </p>
+                <span className="text-[10px] text-muted">v1.0.0</span>
               </div>
+              <DeskToolbar
+                active={activeTool}
+                onSelect={setActiveTool}
+                version="1.0.0"
+                candleStrength={lastCandle && lastCandle.close > lastCandle.open ? candleStrength : 0}
+              />
             </div>
-            <TradingChart
-              candles={candles}
-              height={460}
-              levels={
-                active
-                  ? { entry: active.entry, sl: active.sl, tp1: active.tp1, tp2: active.tp2, tp3: active.tp3 }
-                  : undefined
-              }
-            />
+            <TradingChart candles={candles} height={460} levels={chartLevels} />
           </div>
 
           <CoinDetail signal={active} livePrice={livePrice} />
@@ -185,7 +191,7 @@ export function Dashboard() {
       </main>
 
       <footer className="border-t border-line px-4 py-6 text-center text-xs text-muted">
-        هذا الموقع للتحليل التعليمي وليس نصيحة مالية · Million Deal / صفقة المليون · Binance WebSocket 24/7 بدون API Key
+        هذا الموقع للتحليل التعليمي وليس نصيحة مالية · Million Deal v1.0.0 · Binance WebSocket 24/7 بدون API Key
       </footer>
     </div>
   );

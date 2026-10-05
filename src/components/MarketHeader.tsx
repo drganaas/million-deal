@@ -32,7 +32,7 @@ export function MarketHeader({
         </div>
 
         <div className="ms-auto flex flex-wrap items-center gap-2">
-          <div className="hidden items-center gap-1 rounded-full border border-line bg-inset p-1 md:flex">
+          <div className="flex items-center gap-1 rounded-full border border-line bg-inset p-1">
             {TIMEFRAMES.map((tf) => (
               <button
                 key={tf}

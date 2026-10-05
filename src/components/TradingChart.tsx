@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import {
   createChart,
   type IChartApi,
+  type IPriceLine,
   type ISeriesApi,
   type CandlestickData,
   ColorType,
@@ -30,6 +31,7 @@ export function TradingChart({
   const ref = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const linesRef = useRef<IPriceLine[]>([]);
 
   useEffect(() => {
     if (!ref.current) return;
@@ -65,6 +67,7 @@ export function TradingChart({
     window.addEventListener("resize", onResize);
     return () => {
       window.removeEventListener("resize", onResize);
+      linesRef.current = [];
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
@@ -73,6 +76,7 @@ export function TradingChart({
 
   useEffect(() => {
     if (!seriesRef.current || !candles.length) return;
+    const series = seriesRef.current;
     const data: CandlestickData[] = candles.map((c) => ({
       time: c.time as CandlestickData["time"],
       open: c.open,
@@ -80,46 +84,32 @@ export function TradingChart({
       low: c.low,
       close: c.close,
     }));
-    seriesRef.current.setData(data);
-    seriesRef.current.createPriceLine({
-      price: levels?.entry ?? candles.at(-1)!.close,
-      color: "#d4a017",
-      lineWidth: 2,
-      axisLabelVisible: true,
-      title: "Entry",
-    });
-    if (levels?.sl) {
-      seriesRef.current.createPriceLine({
-        price: levels.sl,
-        color: "#e85d5d",
-        lineWidth: 2,
-        title: "SL",
-      });
+    series.setData(data);
+
+    for (const line of linesRef.current) {
+      series.removePriceLine(line);
     }
-    if (levels?.tp1) {
-      seriesRef.current.createPriceLine({
-        price: levels.tp1,
-        color: "#1dbf73",
-        lineWidth: 1,
-        title: "TP1",
-      });
-    }
-    if (levels?.tp2) {
-      seriesRef.current.createPriceLine({
-        price: levels.tp2,
-        color: "#1dbf73",
-        lineWidth: 1,
-        title: "TP2",
-      });
-    }
-    if (levels?.tp3) {
-      seriesRef.current.createPriceLine({
-        price: levels.tp3,
-        color: "#39ff14",
-        lineWidth: 1,
-        title: "TP3",
-      });
-    }
+    linesRef.current = [];
+
+    const add = (price: number | undefined, color: string, title: string, width: 1 | 2 = 1) => {
+      if (!price || !Number.isFinite(price)) return;
+      linesRef.current.push(
+        series.createPriceLine({
+          price,
+          color,
+          lineWidth: width,
+          axisLabelVisible: true,
+          title,
+        }),
+      );
+    };
+
+    add(levels?.entry, "#d4a017", "Entry", 2);
+    add(levels?.sl, "#e85d5d", "SL", 2);
+    add(levels?.tp1, "#1dbf73", "TP1");
+    add(levels?.tp2, "#1dbf73", "TP2");
+    add(levels?.tp3, "#39ff14", "TP3");
+
     chartRef.current?.timeScale().fitContent();
   }, [candles, levels]);
 
