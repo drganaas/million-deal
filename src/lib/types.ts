@@ -110,6 +110,9 @@ export type SmartSignal = {
   breakout: BreakoutInfo;
   extendedRise: ExtendedRiseInfo;
   reasons: string[];
+  /** True when adopted bestStrategy genome is enforcing entries */
+  genomeAdopted?: boolean;
+  adoptedLabel?: string;
 };
 
 export type DepthLevel = { price: number; qty: number };

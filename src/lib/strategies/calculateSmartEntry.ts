@@ -1,7 +1,12 @@
 import { atr, lastFinite, macd, roundPx, rsi, sma } from "../indicators";
 import type { LiquidityInfo, SmartSignal } from "../types";
 import type { Candle } from "../types";
-import { getActiveGenomeSync, isGenomeEnforced } from "../backtest/activeGenome";
+import {
+  getActiveGenomeSync,
+  getAdoptedLabel,
+  getAdoptedMetrics,
+  isGenomeEnforced,
+} from "../backtest/activeGenome";
 import { evaluateEntryWithGenome } from "../backtest/genomeEntry";
 import { strategyBreakoutSupport, analyzeBreakoutSupport } from "./breakoutSupport";
 import { detectBottom } from "./bottomDetector";
@@ -22,14 +27,17 @@ export function calculateSmartEntry(args: {
   const { symbol, candles } = args;
   if (!candles || candles.length < 60) return null;
 
-  // When user adopts optimized settings, genome becomes a hard entry filter + TP/SL source
   const genome = getActiveGenomeSync();
+  const genomeEnforced = isGenomeEnforced();
   const genomeSig = evaluateEntryWithGenome(candles, genome);
-  if (isGenomeEnforced() && !genomeSig) return null;
+
+  // Adopted strategy is a HARD filter — no signal if genome rejects
+  if (genomeEnforced && !genomeSig) return null;
 
   const extendedRise = evaluateExtendedRise(candles);
-  // Hard gate: only beginning of a sustained rise with liquidity + momentum
-  if (!extendedRise.pass) return null;
+  if (!genomeEnforced && !extendedRise.pass) return null;
+  // Soft rise context still required when genome is on (avoid chasing tops)
+  if (genomeEnforced && extendedRise.distFromLowPct > genome.distFromLowMax + 0.8) return null;
 
   const pillars = [
     strategyCandles(candles),
@@ -43,17 +51,13 @@ export function calculateSmartEntry(args: {
   const breakoutPass = pillars.find((p) => p.id === "breakout")?.pass ?? false;
   const candlesPass = pillars.find((p) => p.id === "candles")?.pass ?? false;
 
-  /**
-   * LOCKED entry policy (random-40 seed 154120721):
-   * ENTRY: candles (45%) OR peaks (50%)
-   * CONFIRM: indicators (with candles) — never solo
-   * SOFT: breakout reclaim — never solo
-   */
-  const combinedCandles = candlesPass && indicatorsPass;
-  const peaksConfirmed = peaksPass && (indicatorsPass || candlesPass);
-  if (!combinedCandles && !peaksConfirmed) return null;
-  if (agreeCount < 2) return null;
-  if (breakoutPass && extendedRise.distFromLowPct > 2.6) return null;
+  if (!genomeEnforced) {
+    const combinedCandles = candlesPass && indicatorsPass;
+    const peaksConfirmed = peaksPass && (indicatorsPass || candlesPass);
+    if (!combinedCandles && !peaksConfirmed) return null;
+    if (agreeCount < 2) return null;
+    if (breakoutPass && extendedRise.distFromLowPct > 2.6) return null;
+  }
 
   const closes = candles.map((c) => c.close);
   const vols = candles.map((c) => c.volume);
@@ -71,12 +75,11 @@ export function calculateSmartEntry(args: {
   const breakout = analyzeBreakoutSupport(candles);
 
   const entry = last;
-  // Prefer optimized genome risk ladder when available
   let sl: number;
   let tp1: number;
   let tp2: number;
   let tp3: number;
-  if (genomeSig && isGenomeEnforced()) {
+  if (genomeSig && genomeEnforced) {
     sl = genomeSig.sl;
     tp1 = genomeSig.tp1;
     tp2 = genomeSig.tp2;
@@ -94,11 +97,28 @@ export function calculateSmartEntry(args: {
     tp3 = entry + Math.max(risk * 6.5, entry * 0.1);
   }
 
+  const adopted = getAdoptedMetrics();
   const avgScore = pillars.reduce((a, p) => a + p.score, 0) / pillars.length;
-  const successRate = Math.min(
-    96,
-    Math.round(62 + agreeCount * 7 + extendedRise.score * 0.12 + avgScore * 0.08),
-  );
+  // Honest rate from adopted holdout — never invent 90% when genome is live
+  const successRate = genomeEnforced && adopted
+    ? Math.round(adopted.testWinRate)
+    : Math.min(
+        96,
+        Math.round(62 + agreeCount * 7 + extendedRise.score * 0.12 + avgScore * 0.08),
+      );
+
+  const label = getAdoptedLabel();
+  const reasons = [
+    ...(genomeEnforced
+      ? [
+          label ?? "النتيجة المعتمدة ✅",
+          `Genome RSI ${genome.rsiLow}-${genome.rsiHigh} · EMA ${genome.emaSlow} · vol×${genome.volumeMult}`,
+          genome.bosRequired ? "BOS مطلوب" : "",
+          genome.fvgRequired ? "FVG مطلوب" : "",
+        ].filter(Boolean)
+      : [extendedRise.detail]),
+    ...pillars.filter((v) => v.pass).map((v) => v.name),
+  ];
 
   return {
     symbol,
@@ -131,10 +151,9 @@ export function calculateSmartEntry(args: {
     zeroReversal,
     breakout,
     extendedRise,
-    reasons: [
-      extendedRise.detail,
-      ...pillars.filter((v) => v.pass).map((v) => v.name),
-    ],
+    reasons,
+    genomeAdopted: genomeEnforced,
+    adoptedLabel: label ?? undefined,
   };
 }
 

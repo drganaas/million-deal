@@ -66,7 +66,20 @@ export async function GET(req: Request) {
         return b.volumeRatio - a.volumeRatio;
       });
 
-    return NextResponse.json({ ok: true, count: signals.length, signals });
+    const { getAdoptedLabel, getAdoptedMetrics, isGenomeEnforced } = await import(
+      "@/lib/backtest/activeGenome"
+    );
+
+    return NextResponse.json({
+      ok: true,
+      count: signals.length,
+      signals,
+      adopted: {
+        enforced: isGenomeEnforced(),
+        label: getAdoptedLabel(),
+        metrics: getAdoptedMetrics(),
+      },
+    });
   } catch (error) {
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "scan failed" },

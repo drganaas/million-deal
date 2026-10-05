@@ -38,11 +38,22 @@ export function CoinDetail({ signal, livePrice }: { signal: SmartSignal | null; 
         </div>
         <div className="flex flex-col items-end gap-2">
           <div className="rounded-full bg-teal/15 px-3 py-1 text-sm font-semibold text-teal">
-            نجاح متوقع {signal.successRate}%
+            {signal.genomeAdopted ? "WR معتمد" : "نجاح متوقع"} {signal.successRate}%
           </div>
-          <div className="rounded-full border border-line px-3 py-1 text-xs text-muted">
-            توافق {signal.agreeCount}/4 ركائز
-          </div>
+          {signal.genomeAdopted ? (
+            <div className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
+              {signal.adoptedLabel ?? "النتيجة المعتمدة ✅"}
+            </div>
+          ) : (
+            <div className="rounded-full border border-line px-3 py-1 text-xs text-muted">
+              توافق {signal.agreeCount}/4 ركائز
+            </div>
+          )}
+          {signal.genomeAdopted ? (
+            <div className="rounded-full border border-line px-3 py-1 text-xs text-muted">
+              توافق عرضي {signal.agreeCount}/4 · RSI {signal.rsi}
+            </div>
+          ) : null}
         </div>
       </div>
 

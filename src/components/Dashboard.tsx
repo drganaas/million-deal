@@ -99,16 +99,19 @@ export function Dashboard() {
         </div>
       ) : null}
 
+      <div className="border-b border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-center text-sm font-semibold text-emerald-300">
+        النتيجة المعتمدة ✅ · RSI 58–64 · EMA 55 · BOS+FVG · حجم×2.6 · Test WR 72.4% · PF 6.81
+      </div>
+
       <main className="mx-auto grid max-w-[1400px] gap-4 px-4 py-4 lg:grid-cols-[280px_1fr]">
         <aside className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] uppercase tracking-wide text-muted">إشارات قوية · 2/4+</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] uppercase tracking-wide text-muted">إشارات الجينوم المعتمد</p>
             <button
               type="button"
-              className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg"
+              className="inline-flex items-center gap-1 text-xs text-gold-soft hover:text-fg"
               onClick={() => router.push("/backtest")}
             >
-              <Bell size={12} />
               اختبار ذكي
             </button>
             <button
