@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, LogOut } from "lucide-react";
 import { CoinDetail } from "@/components/CoinDetail";
-import { DeskToolbar, type CoinHit, type DeskToolId, type LevelInfo, type TradeKind } from "@/components/DeskToolbar";
+import { DeskToolbar, CandleScanStrip, type CoinHit, type DeskToolId, type LevelInfo, type TradeKind } from "@/components/DeskToolbar";
 import { LiveTicker } from "@/components/LiveTicker";
 import { MarketHeader } from "@/components/MarketHeader";
 import { ResultsBoard } from "@/components/ResultsBoard";
@@ -18,7 +18,7 @@ import type { Candle, SmartSignal } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
 const SESSION_KEY = "md.session";
-const APP_VERSION = "1.2.0";
+const APP_VERSION = "1.2.2";
 const KIND_TF: Record<TradeKind, string> = {
   scalp: "5m",
   spot: "15m",
@@ -76,7 +76,7 @@ export function Dashboard() {
   const [detail, setDetail] = useState<SmartSignal | null>(null);
   const [email, setEmail] = useState("");
   const [wsLive, setWsLive] = useState(false);
-  const [activeTool, setActiveTool] = useState<DeskToolId | null>("bullish-candles");
+  const [activeTool, setActiveTool] = useState<DeskToolId | null>(null);
   const [tradeKind, setTradeKind] = useState<TradeKind>("spot");
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<CoinHit[]>([]);
@@ -166,11 +166,6 @@ export function Dashboard() {
     () => detail ?? signals.find((s) => s.symbol === selected) ?? null,
     [detail, selected, signals],
   );
-
-  const chartLevels = useMemo(() => {
-    if (!active) return undefined;
-    return { entry: active.entry, sl: active.sl, tp1: active.tp1, tp2: active.tp2, tp3: active.tp3 };
-  }, [active]);
 
   const lastCandle = candles.at(-1);
   const candleStrength = lastCandle
@@ -286,14 +281,18 @@ export function Dashboard() {
             selectedBase={selected.replace("USDT", "")}
             candleStrength={bullishNow ? candleStrength : 0}
             liveCandles={liveScan.hits}
-            liveUniverse={liveScan.universe}
-            liveBusy={liveScan.busy}
             positive={positive}
           />
         </div>
-        <div className="w-full border-y border-line" style={{ height: "min(42vh, 360px)", minHeight: 300 }}>
-          <TradingChart candles={candles} levels={chartLevels} />
+        <div className="w-full border-y border-line" style={{ height: "min(88vh, 980px)", minHeight: 720 }}>
+          <TradingChart candles={candles} />
         </div>
+        <CandleScanStrip
+          hits={liveScan.hits}
+          universe={liveScan.universe}
+          busy={liveScan.busy}
+          onPick={(s) => void pickCoin(s)}
+        />
       </section>
 
       <main className="mx-auto max-w-[1600px] space-y-4 px-3 py-4">

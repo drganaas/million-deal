@@ -90,8 +90,6 @@ export function DeskToolbar({
   selectedBase,
   candleStrength,
   liveCandles,
-  liveUniverse,
-  liveBusy,
   positive,
 }: {
   active?: DeskToolId | null;
@@ -112,8 +110,6 @@ export function DeskToolbar({
   selectedBase: string;
   candleStrength: number;
   liveCandles: LiveCandleHit[];
-  liveUniverse: number;
-  liveBusy: boolean;
   positive: Partial<Record<DeskToolId, boolean>>;
 }) {
   const searchOpen = active === "manual-search" || active === "add-coins";
@@ -264,51 +260,6 @@ export function DeskToolbar({
         />
       )}
 
-      {active === "bullish-candles" && (
-        <div className="rounded-xl border border-line bg-inset px-3 py-2">
-          <div className="mb-1 flex items-center justify-between text-[11px] text-muted">
-            <span>بحث تلقائي لحظي · Binance · كل الأزواج</span>
-            <span className="font-semibold text-teal">
-              {liveBusy ? "جاري المسح…" : `${liveUniverse} زوج · ${liveCandles.length} شمعة`}
-            </span>
-          </div>
-          <div className="mb-1 flex items-center justify-between text-[11px]">
-            <span className="text-muted">قوة الشمعة</span>
-            <span className="font-mono font-semibold text-gold-soft">{Math.round(topStrength)}%</span>
-          </div>
-          <div className="mb-2 h-2.5 overflow-hidden rounded-full bg-black/40">
-            <div
-              className="candle-glow h-full rounded-full bg-gradient-to-l from-teal to-gold"
-              style={{ width: `${Math.max(0, Math.min(100, topStrength))}%` }}
-            />
-          </div>
-          <div className="max-h-40 overflow-y-auto">
-            {liveCandles.length ? (
-              liveCandles.map((c) => (
-                <button
-                  key={c.symbol}
-                  type="button"
-                  onClick={() => onPickCoin(c.symbol)}
-                  className="mb-0.5 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-start hover:bg-white/5"
-                >
-                  <span className="font-semibold">{c.base}</span>
-                  <span className="text-[11px] text-muted">{c.pattern}</span>
-                  <span className="font-mono text-teal">{c.strength}%</span>
-                  <span className={c.changePct >= 0 ? "text-[11px] text-teal" : "text-[11px] text-danger"}>
-                    {c.changePct >= 0 ? "+" : ""}
-                    {c.changePct.toFixed(1)}%
-                  </span>
-                </button>
-              ))
-            ) : (
-              <p className="text-[11px] text-muted">
-                {liveBusy ? "يتصل ببينانس ويفحص كل العملات…" : "لا شموع صاعدة قوية الآن — يُعاد المسح تلقائياً"}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-
       {active === "deploy-version" && (
         <p className="text-[11px] text-muted">نسخة النشر الحالية: Million Deal v{version} · Render production</p>
       )}
@@ -340,6 +291,51 @@ function LevelCard({
       ) : (
         <p className="text-[11px] text-muted">ابحث واختر عملة أولاً ليظهر الرقم هنا داخل الأيقونة</p>
       )}
+    </div>
+  );
+}
+
+export function CandleScanStrip({
+  hits,
+  universe,
+  busy,
+  onPick,
+}: {
+  hits: LiveCandleHit[];
+  universe: number;
+  busy: boolean;
+  onPick: (symbol: string) => void;
+}) {
+  return (
+    <div className="border-t border-line bg-inset px-3 py-2">
+      <div className="mb-1.5 flex items-center justify-between text-[11px] text-muted">
+        <span>شموع صاعدة لحظية · Binance</span>
+        <span className="text-teal">{busy ? "مسح…" : `${universe} زوج · ${hits.length} شمعة`}</span>
+      </div>
+      <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+        {hits.slice(0, 14).map((c) => (
+          <button
+            key={c.symbol}
+            type="button"
+            onClick={() => onPick(c.symbol)}
+            className="w-[108px] shrink-0 rounded-lg border border-line bg-bg px-2 py-1.5 text-start hover:border-gold/50"
+          >
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[11px] font-semibold">{c.base}</span>
+              <span className="font-mono text-[10px] text-teal">{c.strength}%</span>
+            </div>
+            <div className="mt-1 h-1 overflow-hidden rounded-full bg-black/40">
+              <div
+                className="h-full rounded-full bg-gradient-to-l from-teal to-gold"
+                style={{ width: `${Math.max(8, Math.min(100, c.strength))}%` }}
+              />
+            </div>
+          </button>
+        ))}
+        {!hits.length ? (
+          <p className="py-1 text-[11px] text-muted">{busy ? "يتصل ببينانس…" : "لا شموع صاعدة قوية الآن"}</p>
+        ) : null}
+      </div>
     </div>
   );
 }

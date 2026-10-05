@@ -6,7 +6,6 @@ import {
   ColorType,
   LineStyle,
   type IChartApi,
-  type IPriceLine,
   type ISeriesApi,
   type CandlestickData,
   type LineData,
@@ -14,14 +13,6 @@ import {
 } from "lightweight-charts";
 import type { Candle } from "@/lib/types";
 import { ema, lastFinite, macd, parabolicSar } from "@/lib/indicators";
-
-type Levels = {
-  entry?: number;
-  sl?: number;
-  tp1?: number;
-  tp2?: number;
-  tp3?: number;
-};
 
 function toLine(candles: Candle[], values: number[]): LineData[] {
   const out: LineData[] = [];
@@ -40,10 +31,8 @@ function lastOf(values: number[]) {
 
 export function TradingChart({
   candles,
-  levels,
 }: {
   candles: Candle[];
-  levels?: Levels;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -54,7 +43,6 @@ export function TradingChart({
   const macdHistRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const macdLineRef = useRef<ISeriesApi<"Line"> | null>(null);
   const macdSigRef = useRef<ISeriesApi<"Line"> | null>(null);
-  const linesRef = useRef<IPriceLine[]>([]);
   const [legend, setLegend] = useState({ ema21: 0, ema55: 0, sar: 0, macd: 0, signal: 0 });
 
   useEffect(() => {
@@ -81,7 +69,7 @@ export function TradingChart({
       },
       crosshair: { mode: 1 },
       width: Math.max(el.current.clientWidth, 120),
-      height: Math.max(el.current.clientHeight, 220),
+      height: Math.max(el.current.clientHeight || 720, 1),
     });
 
     const candlesSeries = chart.addCandlestickSeries({
@@ -90,33 +78,31 @@ export function TradingChart({
       borderVisible: false,
       wickUpColor: "#1dbf73",
       wickDownColor: "#e85d5d",
+      lastValueVisible: true,
+      priceLineVisible: false,
     });
     const emaFast = chart.addLineSeries({
       color: "#60a5fa",
       lineWidth: 2,
-      title: "EMA21",
-      lastValueVisible: true,
+      lastValueVisible: false,
       priceLineVisible: false,
     });
     const emaSlow = chart.addLineSeries({
       color: "#f59e0b",
       lineWidth: 2,
-      title: "EMA55",
-      lastValueVisible: true,
+      lastValueVisible: false,
       priceLineVisible: false,
     });
     const sar = chart.addLineSeries({
       color: "#e879f9",
       lineWidth: 2,
       lineStyle: LineStyle.Dotted,
-      title: "SAR",
-      lastValueVisible: true,
+      lastValueVisible: false,
       priceLineVisible: false,
     });
     const hist = chart.addHistogramSeries({
       priceScaleId: "macd",
-      title: "MACD",
-      lastValueVisible: true,
+      lastValueVisible: false,
       priceLineVisible: false,
     });
     const macdLine = chart.addLineSeries({
@@ -151,7 +137,7 @@ export function TradingChart({
       if (!el.current) return;
       chart.applyOptions({
         width: Math.max(el.current.clientWidth, 120),
-        height: Math.max(el.current.clientHeight, 220),
+        height: Math.max(el.current.clientHeight || 720, 1),
       });
     };
     resize();
@@ -162,7 +148,6 @@ export function TradingChart({
     return () => {
       window.removeEventListener("resize", resize);
       ro.disconnect();
-      linesRef.current = [];
       chart.remove();
       chartRef.current = null;
       candleRef.current = null;
@@ -217,35 +202,8 @@ export function TradingChart({
       macd: lastOf(m.line),
       signal: lastOf(m.signal),
     });
-
-    for (const line of linesRef.current) {
-      try {
-        series.removePriceLine(line);
-      } catch {
-        /* gone */
-      }
-    }
-    linesRef.current = [];
-
-    const add = (price: number | undefined, color: string, title: string, width: 1 | 2 = 1) => {
-      if (!price || !Number.isFinite(price)) return;
-      linesRef.current.push(
-        series.createPriceLine({
-          price,
-          color,
-          lineWidth: width,
-          axisLabelVisible: true,
-          title,
-        }),
-      );
-    };
-    add(levels?.entry, "#d4a017", "Entry", 2);
-    add(levels?.sl, "#e85d5d", "SL", 2);
-    add(levels?.tp1, "#1dbf73", "TP1");
-    add(levels?.tp2, "#1dbf73", "TP2");
-    add(levels?.tp3, "#39ff14", "TP3");
     chartRef.current?.timeScale().fitContent();
-  }, [candles, levels]);
+  }, [candles]);
 
   const fmt = (n: number) => (n >= 100 ? n.toFixed(2) : n.toPrecision(4));
 
