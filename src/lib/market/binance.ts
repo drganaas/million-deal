@@ -9,6 +9,7 @@ export type Ticker = {
   symbol: string;
   base: string;
   last: number;
+  open: number;
   changePct: number;
   high: number;
   low: number;
@@ -28,11 +29,13 @@ async function getJson<T>(url: string, timeout = 12000): Promise<T> {
   return (await res.json()) as T;
 }
 
-export async function fetchBinanceTickers(): Promise<Ticker[]> {
+export async function fetchBinanceTickers(opts?: { minQuoteVolume?: number }): Promise<Ticker[]> {
+  const minVol = opts?.minQuoteVolume ?? 2_000_000;
   const raw = await getJson<
     Array<{
       symbol: string;
       lastPrice: string;
+      openPrice: string;
       priceChangePercent: string;
       highPrice: string;
       lowPrice: string;
@@ -47,13 +50,13 @@ export async function fetchBinanceTickers(): Promise<Ticker[]> {
       if (LEVERAGED.test(base) || STABLES.test(base)) return null;
       const last = +row.lastPrice;
       const quoteVolume = +row.quoteVolume;
-      if (!Number.isFinite(last) || last <= 0 || quoteVolume < 2_000_000) return null;
-      // Skip near-peg / micro stables mistaken as alts
+      if (!Number.isFinite(last) || last <= 0 || quoteVolume < minVol) return null;
       if (last > 0.95 && last < 1.05 && /USD|DAI|EUR/.test(base)) return null;
       return {
         symbol: row.symbol,
         base,
         last,
+        open: +row.openPrice,
         changePct: +row.priceChangePercent,
         high: +row.highPrice,
         low: +row.lowPrice,
@@ -64,9 +67,15 @@ export async function fetchBinanceTickers(): Promise<Ticker[]> {
     .sort((a, b) => b.quoteVolume - a.quoteVolume);
 }
 
-export async function fetchKlines(symbol: string, interval = "15m", limit = 120): Promise<Candle[]> {
+export async function fetchKlines(
+  symbol: string,
+  interval = "15m",
+  limit = 120,
+  timeout = 12000,
+): Promise<Candle[]> {
   const raw = await getJson<(string | number)[][]>(
     `${BINANCE}/api/v3/klines?symbol=${encodeURIComponent(symbol)}&interval=${interval}&limit=${limit}`,
+    timeout,
   );
   return raw.map((row) => ({
     time: Math.floor(Number(row[0]) / 1000),

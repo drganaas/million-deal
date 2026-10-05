@@ -26,7 +26,7 @@ export function MarketHeader({
     <header className="sticky top-0 z-30 border-b border-line bg-bg/95 backdrop-blur-xl">
       <div className="flex w-full flex-wrap items-center gap-3 px-3 py-2">
         <div className="flex items-center gap-3">
-          <Image src="/icons/icon-192.png" alt="Million Deal" width={40} height={40} className="rounded-xl" />
+          <Image src="/icon-192.png" alt="Million Deal" width={40} height={40} className="rounded-xl" />
           <div>
             <p className="text-[10px] font-semibold tracking-[0.28em] text-gold uppercase">Million Deal</p>
             <h1 className="text-base font-bold text-fg md:text-lg">صفقة المليون · مكتب التداول</h1>

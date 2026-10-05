@@ -4,21 +4,21 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, LogOut } from "lucide-react";
 import { CoinDetail } from "@/components/CoinDetail";
-import { DeskToolbar, type CoinHit, type DeskToolId, type TradeKind } from "@/components/DeskToolbar";
+import { DeskToolbar, type CoinHit, type DeskToolId, type LevelInfo, type TradeKind } from "@/components/DeskToolbar";
 import { LiveTicker } from "@/components/LiveTicker";
 import { MarketHeader } from "@/components/MarketHeader";
 import { ResultsBoard } from "@/components/ResultsBoard";
 import { SignalCard } from "@/components/SignalCard";
-import { TradingChart, type ChartGuide } from "@/components/TradingChart";
+import { TradingChart } from "@/components/TradingChart";
 import { useBinanceTicker } from "@/hooks/useBinanceTicker";
+import { useCandleScan } from "@/hooks/useCandleScan";
 import { useMarketScan } from "@/hooks/useMarketScan";
 import { lastFinite, sma } from "@/lib/indicators";
-import { detectCandlePattern } from "@/lib/strategies/candlesStrategy";
 import type { Candle, SmartSignal } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
 const SESSION_KEY = "md.session";
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.2.0";
 const KIND_TF: Record<TradeKind, string> = {
   scalp: "5m",
   spot: "15m",
@@ -71,22 +71,17 @@ export function Dashboard() {
   const setSignals = useAppStore((s) => s.setSignals);
   const [interval, setIntervalTf] = useState("15m");
   const { refresh, error } = useMarketScan(interval);
+  const liveScan = useCandleScan(interval);
   const [candles, setCandles] = useState<Candle[]>([]);
   const [detail, setDetail] = useState<SmartSignal | null>(null);
   const [email, setEmail] = useState("");
   const [wsLive, setWsLive] = useState(false);
-  const [activeTool, setActiveTool] = useState<DeskToolId | null>("frames");
+  const [activeTool, setActiveTool] = useState<DeskToolId | null>("bullish-candles");
   const [tradeKind, setTradeKind] = useState<TradeKind>("spot");
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<CoinHit[]>([]);
   const [searchBusy, setSearchBusy] = useState(false);
   const [watchlist, setWatchlist] = useState<string[]>([]);
-  const [overlays, setOverlays] = useState({
-    support: true,
-    resistance: true,
-    boost: false,
-    bottoms: true,
-  });
 
   useEffect(() => {
     try {
@@ -183,48 +178,49 @@ export function Dashboard() {
         (Math.abs(lastCandle.close - lastCandle.open) / Math.max(lastCandle.high - lastCandle.low, 1e-12)) * 100,
       )
     : 0;
+  const bullishNow = Boolean(lastCandle && lastCandle.close > lastCandle.open);
 
-  const bullishHits = useMemo(() => {
-    const slice = candles.slice(-12);
-    return slice
-      .map((c, i) => {
-        const window = candles.slice(0, candles.length - slice.length + i + 1);
-        const pattern = detectCandlePattern(window);
-        const bull = c.close > c.open;
-        const strength = Math.round(
-          (Math.abs(c.close - c.open) / Math.max(c.high - c.low, 1e-12)) * 100,
-        );
-        if (!bull || strength < 45) return null;
-        return { time: c.time, strength, pattern: pattern === "Neutral" ? "صاعدة" : pattern };
-      })
-      .filter((x): x is NonNullable<typeof x> => x !== null)
-      .slice(-6);
-  }, [candles]);
-
-  const guides = useMemo(() => {
-    const out: ChartGuide[] = [];
-    if (!candles.length) return out;
+  const levels = useMemo<LevelInfo>(() => {
+    if (!candles.length) {
+      return { support: null, resistance: null, bottom: null, boost: null, price: lastCandle?.close ?? null };
+    }
     const lows = swingLows(candles);
     const highs = swingHighs(candles);
-    const lastLow = lows.at(-1);
-    const lastHigh = highs.at(-1);
     const vols = candles.map((c) => c.volume);
     const volAvg = lastFinite(sma(vols, 20));
     const volRatio = (vols.at(-1) ?? 0) / Math.max(volAvg, 1e-9);
-    if (overlays.support && lastLow) out.push({ price: lastLow, color: "#22c55e", title: "دعم" });
-    if (overlays.resistance && lastHigh) out.push({ price: lastHigh, color: "#f97316", title: "مقاومة" });
-    if (overlays.bottoms && lows.at(-2)) out.push({ price: lows[lows.length - 2]!, color: "#38bdf8", title: "قاع" });
-    if (overlays.boost && lastCandle && volRatio >= 1.4) {
-      out.push({ price: lastCandle.close, color: "#e879f9", title: `تعزيز ${volRatio.toFixed(1)}x` });
-    }
-    return out;
-  }, [candles, overlays, lastCandle]);
+    return {
+      support: lows.at(-1) ?? null,
+      resistance: highs.at(-1) ?? null,
+      bottom: lows.at(-2) ?? lows.at(-1) ?? null,
+      boost: Number.isFinite(volRatio) ? volRatio : null,
+      price: lastCandle?.close ?? null,
+    };
+  }, [candles, lastCandle]);
+
+  const price = livePrice || levels.price || 0;
+  const nearSupport = Boolean(levels.support && price > 0 && price >= levels.support && (price - levels.support) / price <= 0.015);
+  const holdSupport = Boolean(levels.support && price > levels.support);
+  const nearResistance = Boolean(
+    levels.resistance && price > 0 && levels.resistance >= price && (levels.resistance - price) / price <= 0.012,
+  );
+  const nearBottom = Boolean(levels.bottom && price > 0 && Math.abs(price - levels.bottom) / price <= 0.03);
+  const boosted = Boolean(levels.boost != null && levels.boost >= 1.4);
+
+  const positive: Partial<Record<DeskToolId, boolean>> = {
+    support: holdSupport && (nearSupport || bullishNow),
+    resistance: nearResistance && bullishNow,
+    bottoms: nearBottom && bullishNow,
+    boost: boosted,
+    "bullish-candles": bullishNow || liveScan.hits.length > 0,
+    "add-coins": watchlist.length > 0,
+    "manual-search": hits.length > 0,
+    frames: wsLive,
+    "trade-types": Boolean(active),
+  };
 
   function onSelectTool(id: DeskToolId) {
     setActiveTool((prev) => (prev === id ? null : id));
-    if (id === "support" || id === "resistance" || id === "boost" || id === "bottoms") {
-      setOverlays((o) => ({ ...o, [id]: !o[id] }));
-    }
   }
 
   function onTradeKind(k: TradeKind) {
@@ -268,7 +264,7 @@ export function Dashboard() {
               · {interval} · {tradeKind}
             </span>
           </p>
-          <span className="text-[11px] text-muted">شارت عرضي كامل · المؤشرات تتبع السعر</span>
+          <span className="text-[11px] text-muted">شارت واحد · المؤشرات تتبع السعر</span>
         </div>
         <div className="w-full px-3 pb-2">
           <DeskToolbar
@@ -286,13 +282,17 @@ export function Dashboard() {
             onPickCoin={(s) => void pickCoin(s)}
             watchlist={watchlist}
             onRemoveCoin={(s) => setWatchlist((p) => p.filter((x) => x !== s))}
-            overlays={overlays}
-            candleStrength={lastCandle && lastCandle.close > lastCandle.open ? candleStrength : 0}
-            bullishHits={bullishHits}
+            levels={levels}
+            selectedBase={selected.replace("USDT", "")}
+            candleStrength={bullishNow ? candleStrength : 0}
+            liveCandles={liveScan.hits}
+            liveUniverse={liveScan.universe}
+            liveBusy={liveScan.busy}
+            positive={positive}
           />
         </div>
         <div className="w-full border-y border-line" style={{ height: "min(42vh, 360px)", minHeight: 300 }}>
-          <TradingChart candles={candles} levels={chartLevels} guides={guides} />
+          <TradingChart candles={candles} levels={chartLevels} />
         </div>
       </section>
 

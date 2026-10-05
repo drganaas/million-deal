@@ -13,6 +13,8 @@ import {
   TrendingDown,
   X,
 } from "lucide-react";
+import type { LiveCandleHit } from "@/hooks/useCandleScan";
+import { roundPx } from "@/lib/indicators";
 
 export type DeskToolId =
   | "manual-search"
@@ -35,10 +37,12 @@ export type CoinHit = {
   quoteVolume: number;
 };
 
-export type BullishHit = {
-  time: number;
-  strength: number;
-  pattern: string;
+export type LevelInfo = {
+  support: number | null;
+  resistance: number | null;
+  bottom: number | null;
+  boost: number | null;
+  price: number | null;
 };
 
 const TOOLS: Array<{ id: DeskToolId; label: string; Icon: typeof Search }> = [
@@ -62,6 +66,11 @@ const KINDS: Array<{ id: TradeKind; label: string; src: string }> = [
   { id: "futures", label: "Futures", src: "/icons/futures.svg" },
 ];
 
+function px(n: number | null) {
+  if (n == null || !Number.isFinite(n) || n <= 0) return "—";
+  return String(roundPx(n));
+}
+
 export function DeskToolbar({
   active,
   onSelect,
@@ -77,9 +86,13 @@ export function DeskToolbar({
   onPickCoin,
   watchlist,
   onRemoveCoin,
-  overlays,
+  levels,
+  selectedBase,
   candleStrength,
-  bullishHits,
+  liveCandles,
+  liveUniverse,
+  liveBusy,
+  positive,
 }: {
   active?: DeskToolId | null;
   onSelect: (id: DeskToolId) => void;
@@ -95,11 +108,17 @@ export function DeskToolbar({
   onPickCoin: (symbol: string) => void;
   watchlist: string[];
   onRemoveCoin: (symbol: string) => void;
-  overlays: { support: boolean; resistance: boolean; boost: boolean; bottoms: boolean };
+  levels: LevelInfo;
+  selectedBase: string;
   candleStrength: number;
-  bullishHits: BullishHit[];
+  liveCandles: LiveCandleHit[];
+  liveUniverse: number;
+  liveBusy: boolean;
+  positive: Partial<Record<DeskToolId, boolean>>;
 }) {
   const searchOpen = active === "manual-search" || active === "add-coins";
+  const topStrength = liveCandles[0]?.strength ?? candleStrength;
+  const hasCoin = Boolean(selectedBase);
 
   return (
     <div className="space-y-2">
@@ -111,18 +130,19 @@ export function DeskToolbar({
             title={label}
             onClick={() => onSelect(id)}
             className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-[11px] font-semibold transition ${
-              active === id ||
-              (id === "support" && overlays.support) ||
-              (id === "resistance" && overlays.resistance) ||
-              (id === "boost" && overlays.boost) ||
-              (id === "bottoms" && overlays.bottoms)
-                ? "border-gold bg-gold/15 text-gold-soft"
-                : "border-line bg-inset text-muted hover:border-gold/50 hover:text-fg"
+              positive[id]
+                ? "service-glow border-teal bg-teal/15 text-teal"
+                : active === id
+                  ? "border-gold bg-gold/15 text-gold-soft"
+                  : "border-line bg-inset text-muted hover:border-gold/50 hover:text-fg"
             }`}
           >
             <Icon size={14} />
             <span>{label}</span>
             {id === "deploy-version" ? <span className="font-mono text-gold">v{version}</span> : null}
+            {id === "bullish-candles" && topStrength > 0 ? (
+              <span className="rounded-full bg-teal/20 px-1.5 py-0.5 font-mono text-[10px] text-teal">{topStrength}%</span>
+            ) : null}
           </button>
         ))}
       </div>
@@ -206,27 +226,84 @@ export function DeskToolbar({
         </div>
       )}
 
+      {active === "support" && (
+        <LevelCard
+          title={`الدعم · ${selectedBase || "اختر عملة"}`}
+          ready={hasCoin}
+          rows={[{ label: "مستوى الدعم", value: px(levels.support), color: "text-teal" }]}
+        />
+      )}
+      {active === "resistance" && (
+        <LevelCard
+          title={`المقاومة · ${selectedBase || "اختر عملة"}`}
+          ready={hasCoin}
+          rows={[{ label: "مستوى المقاومة", value: px(levels.resistance), color: "text-orange-400" }]}
+        />
+      )}
+      {active === "bottoms" && (
+        <LevelCard
+          title={`القيعان · ${selectedBase || "اختر عملة"}`}
+          ready={hasCoin}
+          rows={[
+            { label: "آخر قاع", value: px(levels.bottom), color: "text-sky-400" },
+            { label: "الدعم الحالي", value: px(levels.support), color: "text-teal" },
+          ]}
+        />
+      )}
+      {active === "boost" && (
+        <LevelCard
+          title={`التعزيز · ${selectedBase || "اختر عملة"}`}
+          ready={hasCoin}
+          rows={[
+            {
+              label: "حجم مقابل المتوسط",
+              value: levels.boost != null ? `${levels.boost.toFixed(1)}x` : "—",
+              color: "text-fuchsia-300",
+            },
+          ]}
+        />
+      )}
+
       {active === "bullish-candles" && (
         <div className="rounded-xl border border-line bg-inset px-3 py-2">
           <div className="mb-1 flex items-center justify-between text-[11px] text-muted">
-            <span>قوة آخر شمعة صاعدة</span>
-            <span className="font-semibold text-teal">{candleStrength}%</span>
+            <span>بحث تلقائي لحظي · Binance · كل الأزواج</span>
+            <span className="font-semibold text-teal">
+              {liveBusy ? "جاري المسح…" : `${liveUniverse} زوج · ${liveCandles.length} شمعة`}
+            </span>
           </div>
-          <div className="mb-2 h-2 overflow-hidden rounded-full bg-black/40">
+          <div className="mb-1 flex items-center justify-between text-[11px]">
+            <span className="text-muted">قوة الشمعة</span>
+            <span className="font-mono font-semibold text-gold-soft">{Math.round(topStrength)}%</span>
+          </div>
+          <div className="mb-2 h-2.5 overflow-hidden rounded-full bg-black/40">
             <div
-              className="h-full rounded-full bg-gradient-to-l from-teal to-gold"
-              style={{ width: `${Math.max(0, Math.min(100, candleStrength))}%` }}
+              className="candle-glow h-full rounded-full bg-gradient-to-l from-teal to-gold"
+              style={{ width: `${Math.max(0, Math.min(100, topStrength))}%` }}
             />
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {bullishHits.length ? (
-              bullishHits.map((b, i) => (
-                <span key={`${b.time}-${i}`} className="rounded-full bg-teal/15 px-2 py-0.5 text-[10px] text-teal">
-                  {b.pattern} · {b.strength}%
-                </span>
+          <div className="max-h-40 overflow-y-auto">
+            {liveCandles.length ? (
+              liveCandles.map((c) => (
+                <button
+                  key={c.symbol}
+                  type="button"
+                  onClick={() => onPickCoin(c.symbol)}
+                  className="mb-0.5 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-start hover:bg-white/5"
+                >
+                  <span className="font-semibold">{c.base}</span>
+                  <span className="text-[11px] text-muted">{c.pattern}</span>
+                  <span className="font-mono text-teal">{c.strength}%</span>
+                  <span className={c.changePct >= 0 ? "text-[11px] text-teal" : "text-[11px] text-danger"}>
+                    {c.changePct >= 0 ? "+" : ""}
+                    {c.changePct.toFixed(1)}%
+                  </span>
+                </button>
               ))
             ) : (
-              <span className="text-[11px] text-muted">لا شموع صاعدة قوية في آخر 12 شمعة</span>
+              <p className="text-[11px] text-muted">
+                {liveBusy ? "يتصل ببينانس ويفحص كل العملات…" : "لا شموع صاعدة قوية الآن — يُعاد المسح تلقائياً"}
+              </p>
             )}
           </div>
         </div>
@@ -235,11 +312,33 @@ export function DeskToolbar({
       {active === "deploy-version" && (
         <p className="text-[11px] text-muted">نسخة النشر الحالية: Million Deal v{version} · Render production</p>
       )}
+    </div>
+  );
+}
 
-      {(active === "support" || active === "resistance" || active === "boost" || active === "bottoms") && (
-        <p className="text-[11px] text-gold-soft">
-          تم تفعيل الرسم على الشارت — اضغط الأيقونة مرة أخرى لإخفاء الخط
-        </p>
+function LevelCard({
+  title,
+  ready,
+  rows,
+}: {
+  title: string;
+  ready: boolean;
+  rows: Array<{ label: string; value: string; color: string }>;
+}) {
+  return (
+    <div className="rounded-xl border border-line bg-inset px-3 py-2">
+      <p className="mb-1 text-[11px] font-semibold text-gold-soft">{title}</p>
+      {ready ? (
+        <div className="space-y-1">
+          {rows.map((r) => (
+            <div key={r.label} className="flex items-center justify-between text-sm">
+              <span className="text-muted">{r.label}</span>
+              <span className={`font-mono font-semibold ${r.color}`}>{r.value}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-[11px] text-muted">ابحث واختر عملة أولاً ليظهر الرقم هنا داخل الأيقونة</p>
       )}
     </div>
   );
