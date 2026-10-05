@@ -14,11 +14,18 @@ import { useBinanceTicker } from "@/hooks/useBinanceTicker";
 import { useCandleScan } from "@/hooks/useCandleScan";
 import { useMarketScan } from "@/hooks/useMarketScan";
 import { lastFinite, sma } from "@/lib/indicators";
-import type { Candle, SmartSignal } from "@/lib/types";
+import { detectBottom } from "@/lib/strategies/bottomDetector";
+import type { BottomType, Candle, SmartSignal } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
 const SESSION_KEY = "md.session";
-const APP_VERSION = "1.2.2";
+const APP_VERSION = "1.2.4";
+const BOTTOM_AR: Record<BottomType, string> = {
+  Historical: "تاريخي",
+  Double: "مزدوج",
+  First: "أول",
+  Local: "محلي",
+};
 const KIND_TF: Record<TradeKind, string> = {
   scalp: "5m",
   spot: "15m",
@@ -71,11 +78,10 @@ export function Dashboard() {
   const setSignals = useAppStore((s) => s.setSignals);
   const [interval, setIntervalTf] = useState("15m");
   const { refresh, error } = useMarketScan(interval);
-  const liveScan = useCandleScan(interval);
+  const liveScan = useCandleScan();
   const [candles, setCandles] = useState<Candle[]>([]);
   const [detail, setDetail] = useState<SmartSignal | null>(null);
   const [email, setEmail] = useState("");
-  const [wsLive, setWsLive] = useState(false);
   const [activeTool, setActiveTool] = useState<DeskToolId | null>(null);
   const [tradeKind, setTradeKind] = useState<TradeKind>("spot");
   const [query, setQuery] = useState("");
@@ -103,7 +109,6 @@ export function Dashboard() {
 
   useBinanceTicker(selected, (price) => {
     setLivePrice(price);
-    setWsLive(true);
   });
 
   useEffect(() => {
@@ -131,7 +136,7 @@ export function Dashboard() {
     setSearchBusy(true);
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/coins?q=${encodeURIComponent(q)}&limit=12`, { cache: "no-store" });
+        const res = await fetch(`/api/coins?q=${encodeURIComponent(q)}&limit=40`, { cache: "no-store" });
         const data = (await res.json()) as { ok?: boolean; coins?: CoinHit[] };
         setHits(data.ok ? data.coins ?? [] : []);
       } catch {
@@ -146,7 +151,6 @@ export function Dashboard() {
   const pickCoin = useCallback(
     async (symbol: string) => {
       setSelected(symbol);
-      setWatchlist((prev) => (prev.includes(symbol) ? prev : [...prev, symbol]));
       setQuery("");
       setHits([]);
       try {
@@ -177,17 +181,26 @@ export function Dashboard() {
 
   const levels = useMemo<LevelInfo>(() => {
     if (!candles.length) {
-      return { support: null, resistance: null, bottom: null, boost: null, price: lastCandle?.close ?? null };
+      return {
+        support: null,
+        resistance: null,
+        bottom: null,
+        bottomType: null,
+        boost: null,
+        price: lastCandle?.close ?? null,
+      };
     }
     const lows = swingLows(candles);
     const highs = swingHighs(candles);
     const vols = candles.map((c) => c.volume);
     const volAvg = lastFinite(sma(vols, 20));
     const volRatio = (vols.at(-1) ?? 0) / Math.max(volAvg, 1e-9);
+    const bottom = candles.length >= 50 ? detectBottom(candles) : null;
     return {
       support: lows.at(-1) ?? null,
       resistance: highs.at(-1) ?? null,
-      bottom: lows.at(-2) ?? lows.at(-1) ?? null,
+      bottom: bottom?.currentLow ?? lows.at(-2) ?? lows.at(-1) ?? null,
+      bottomType: bottom ? BOTTOM_AR[bottom.type] : null,
       boost: Number.isFinite(volRatio) ? volRatio : null,
       price: lastCandle?.close ?? null,
     };
@@ -207,10 +220,9 @@ export function Dashboard() {
     resistance: nearResistance && bullishNow,
     bottoms: nearBottom && bullishNow,
     boost: boosted,
-    "bullish-candles": bullishNow || liveScan.hits.length > 0,
+    "bullish-candles": liveScan.hits.length > 0,
     "add-coins": watchlist.length > 0,
     "manual-search": hits.length > 0,
-    frames: wsLive,
     "trade-types": Boolean(active),
   };
 
@@ -231,7 +243,7 @@ export function Dashboard() {
         onInterval={setIntervalTf}
         loading={loading}
         onRefresh={() => void refresh()}
-        live={wsLive}
+        live={liveScan.live}
         version={APP_VERSION}
       />
       <LiveTicker />
@@ -275,6 +287,7 @@ export function Dashboard() {
             hits={hits}
             searchBusy={searchBusy}
             onPickCoin={(s) => void pickCoin(s)}
+            onAddCoin={(s) => setWatchlist((p) => (p.includes(s) ? p : [...p, s]))}
             watchlist={watchlist}
             onRemoveCoin={(s) => setWatchlist((p) => p.filter((x) => x !== s))}
             levels={levels}
@@ -284,14 +297,15 @@ export function Dashboard() {
             positive={positive}
           />
         </div>
-        <div className="w-full border-y border-line" style={{ height: "min(88vh, 980px)", minHeight: 720 }}>
-          <TradingChart candles={candles} />
+        <div className="w-full border-y border-line" style={{ height: "min(92vh, 1100px)", minHeight: 900 }}>
+          <TradingChart symbol={selected} interval={interval} />
         </div>
         <CandleScanStrip
           hits={liveScan.hits}
           universe={liveScan.universe}
-          busy={liveScan.busy}
+          watchlist={watchlist}
           onPick={(s) => void pickCoin(s)}
+          onWatch={(s) => setWatchlist((p) => (p.includes(s) ? p : [...p, s]))}
         />
       </section>
 
@@ -321,7 +335,13 @@ export function Dashboard() {
         <div className="flex gap-2 overflow-x-auto pb-1">
           {signals.map((s) => (
             <div key={s.symbol} className="min-w-[220px] max-w-[240px] shrink-0">
-              <SignalCard signal={s} active={s.symbol === selected} onSelect={() => setSelected(s.symbol)} />
+              <SignalCard
+                signal={s}
+                active={s.symbol === selected}
+                watched={watchlist.includes(s.symbol)}
+                onSelect={() => setSelected(s.symbol)}
+                onWatch={() => setWatchlist((p) => (p.includes(s.symbol) ? p : [...p, s.symbol]))}
+              />
             </div>
           ))}
         </div>
@@ -330,7 +350,13 @@ export function Dashboard() {
 
         <div>
           <h2 className="mb-2 text-sm font-semibold text-gold-soft">لوحة النتائج · 4 استراتيجيات</h2>
-          <ResultsBoard rows={signals} selected={selected} onShow={(symbol) => setSelected(symbol)} />
+          <ResultsBoard
+            rows={signals}
+            selected={selected}
+            watchlist={watchlist}
+            onShow={(symbol) => setSelected(symbol)}
+            onWatch={(symbol) => setWatchlist((p) => (p.includes(symbol) ? p : [...p, symbol]))}
+          />
         </div>
       </main>
 
