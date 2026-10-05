@@ -65,6 +65,52 @@ export function macd(closes: number[]) {
   return { line, signal, hist };
 }
 
+/** Wilder Parabolic SAR — dots that flip with trend and follow price. */
+export function parabolicSar(candles: Candle[], step = 0.02, maxStep = 0.2): number[] {
+  const n = candles.length;
+  const out = new Array(n).fill(Number.NaN);
+  if (n < 3) return out;
+
+  let up = candles[1].close >= candles[0].close;
+  let af = step;
+  let ep = up ? candles[0].high : candles[0].low;
+  let sar = up ? candles[0].low : candles[0].high;
+  out[0] = sar;
+
+  for (let i = 1; i < n; i++) {
+    const prev = candles[i - 1];
+    const older = candles[i - 2] ?? prev;
+    const c = candles[i];
+    sar = sar + af * (ep - sar);
+
+    if (up) {
+      sar = Math.min(sar, prev.low, older.low);
+      if (c.low < sar) {
+        up = false;
+        sar = ep;
+        ep = c.low;
+        af = step;
+      } else if (c.high > ep) {
+        ep = c.high;
+        af = Math.min(maxStep, af + step);
+      }
+    } else {
+      sar = Math.max(sar, prev.high, older.high);
+      if (c.high > sar) {
+        up = true;
+        sar = ep;
+        ep = c.high;
+        af = step;
+      } else if (c.low < ep) {
+        ep = c.low;
+        af = Math.min(maxStep, af + step);
+      }
+    }
+    out[i] = sar;
+  }
+  return out;
+}
+
 export function lastFinite(values: number[]): number {
   for (let i = values.length - 1; i >= 0; i--) {
     if (Number.isFinite(values[i])) return values[i];

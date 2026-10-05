@@ -19,7 +19,7 @@ export function useMarketScan(interval = "15m") {
       if (!data.ok) throw new Error(data.error ?? "scan failed");
       const rows = data.signals ?? [];
       setSignals(rows);
-      const strong = rows.find((r) => r.successRate >= 90);
+      const strong = rows.find((r) => r.successRate >= 70);
       if (strong) {
         setAlert(`بداية صعود مؤكدة: ${strong.base} · نجاح ${strong.successRate}%`);
       }

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { Activity, RefreshCw } from "lucide-react";
 
-const TIMEFRAMES = ["5m", "15m", "1h", "4h"] as const;
+const TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"] as const;
 
 export function MarketHeader({
   email,
@@ -12,6 +12,7 @@ export function MarketHeader({
   loading,
   onRefresh,
   live,
+  version = "1.0.0",
 }: {
   email: string;
   interval: string;
@@ -19,10 +20,11 @@ export function MarketHeader({
   loading: boolean;
   onRefresh: () => void;
   live: boolean;
+  version?: string;
 }) {
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-bg/95 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-3 px-4 py-3">
+      <div className="flex w-full flex-wrap items-center gap-3 px-3 py-2">
         <div className="flex items-center gap-3">
           <Image src="/icons/icon-192.png" alt="Million Deal" width={40} height={40} className="rounded-xl" />
           <div>
@@ -68,6 +70,7 @@ export function MarketHeader({
           <a href="/admin" className="rounded-full border border-gold/40 px-3 py-1.5 text-sm text-gold">
             المالك
           </a>
+          <span className="hidden font-mono text-[11px] text-gold lg:inline">v{version}</span>
           <span className="hidden text-xs text-muted lg:inline">{email}</span>
         </div>
       </div>
