@@ -106,6 +106,14 @@ export function Dashboard() {
             <button
               type="button"
               className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg"
+              onClick={() => router.push("/backtest")}
+            >
+              <Bell size={12} />
+              اختبار ذكي
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg"
               onClick={() => {
                 localStorage.removeItem(SESSION_KEY);
                 router.replace("/");

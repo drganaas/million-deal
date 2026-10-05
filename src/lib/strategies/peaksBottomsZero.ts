@@ -1,4 +1,4 @@
-import { lastFinite, rsi, sma } from "../indicators";
+import { lastFinite, macd, rsi, sma } from "../indicators";
 import type { Candle, StrategyVote, ZeroReversalInfo } from "../types";
 
 function findSwingLows(candles: Candle[], look = 3) {
@@ -44,7 +44,7 @@ export function analyzeZeroReversal(candles: Candle[]): ZeroReversalInfo {
   const swingLowIdx = window.lastIndexOf(swingLow);
   const barsSinceLow = window.length - 1 - swingLowIdx;
   const distToLowPct = ((last.close - swingLow) / Math.max(swingLow, 1e-12)) * 100;
-  const bouncePct = ((last.close - swingLow) / Math.max(swingLow, 1e-12)) * 100;
+  const bouncePct = distToLowPct;
   const lastGreen = last.close > last.open;
   const risingNow = last.close > prev.close && lastGreen;
   const higherLow = last.low > swingLow;
@@ -53,19 +53,24 @@ export function analyzeZeroReversal(candles: Candle[]): ZeroReversalInfo {
   const ma7 = lastFinite(sma(closes, 7));
   const ma20 = lastFinite(sma(closes, 20));
   const rsi14 = lastFinite(rsi(closes, 14));
-  const stillAtZero = distToLowPct >= 0 && distToLowPct <= 0.35;
+  const { hist } = macd(closes);
+  const h0 = hist.at(-1) ?? 0;
+  const stillAtZero = distToLowPct >= 0 && distToLowPct <= 0.5;
+  const earlyBounce = distToLowPct > 0.5 && distToLowPct <= 3.0;
 
   let score = 0;
   if (stillAtZero) score += 3;
-  else if (distToLowPct <= 1.5) score += 1;
-  if (lastGreen && stillAtZero) score += 1;
-  if (risingNow && stillAtZero) score += 1;
-  if (prev.close > prev.open && lastGreen && stillAtZero) score += 1;
-  if (higherLow && barsSinceLow <= 6 && stillAtZero) score += 1;
-  if (volSurge >= 1.25 && stillAtZero) score += 1;
-  if (ma7 && Math.abs(last.close - ma7) / ma7 <= 0.08 && stillAtZero) score += 1;
-  if (ma7 && ma20 && ma7 >= ma20 && stillAtZero) score += 1;
-  if (rsi14 >= 28 && rsi14 <= 55 && stillAtZero) score += 1;
+  else if (earlyBounce) score += 2;
+  else if (distToLowPct > 4) score -= 3;
+
+  if (lastGreen && (stillAtZero || earlyBounce)) score += 1;
+  if (risingNow && (stillAtZero || earlyBounce)) score += 1;
+  if (prev.close > prev.open && lastGreen && (stillAtZero || earlyBounce)) score += 1;
+  if (higherLow && barsSinceLow <= 10 && (stillAtZero || earlyBounce)) score += 1;
+  if (volSurge >= 1.2 && volSurge <= 2.8 && (stillAtZero || earlyBounce)) score += 1;
+  if (ma7 && ma20 && ma7 >= ma20 && (stillAtZero || earlyBounce)) score += 1;
+  if (rsi14 >= 32 && rsi14 <= 58 && (stillAtZero || earlyBounce)) score += 1;
+  if (h0 > 0 && (stillAtZero || earlyBounce)) score += 1;
 
   const swings = findSwingLows(candles, 3).slice(-3);
   let structure: ZeroReversalInfo["structure"] = "bounce";
@@ -91,8 +96,22 @@ export function analyzeZeroReversal(candles: Candle[]): ZeroReversalInfo {
     else if (l2 > l1) peaksBottoms = "higher_low";
   }
 
+  if (peaksBottoms === "HH_HL" && (stillAtZero || earlyBounce)) score += 2;
+  if (
+    (structure === "ascending_bottoms" || structure === "second_bottom") &&
+    (stillAtZero || earlyBounce)
+  ) {
+    score += 1;
+  }
+
   const status: ZeroReversalInfo["status"] =
-    stillAtZero && score >= 5 ? "confirmed" : distToLowPct <= 1.2 && score >= 3 ? "potential" : "none";
+    stillAtZero && score >= 5
+      ? "confirmed"
+      : earlyBounce && score >= 5 && peaksBottoms !== "LH_LL"
+        ? "confirmed"
+        : (stillAtZero || earlyBounce) && score >= 4
+          ? "potential"
+          : "none";
 
   return {
     status,
@@ -107,18 +126,21 @@ export function analyzeZeroReversal(candles: Candle[]): ZeroReversalInfo {
   };
 }
 
-/** 3) القمم والقيعان + زيرو انعكاس */
+/** 3) القمم والقيعان · زيرو — LOCKED fix: early bounce + volume band + MACD */
 export function strategyPeaksBottomsZero(candles: Candle[]): StrategyVote {
   const z = analyzeZeroReversal(candles);
+  const closes = candles.map((c) => c.close);
+  const { hist } = macd(closes);
+  const h0 = hist.at(-1) ?? 0;
   let score = z.score * 8;
   const hits: string[] = [];
 
   if (z.status === "confirmed") {
     score += 30;
-    hits.push("زيرو انعكاس مؤكد");
+    hits.push("زيرو/بداية صعود مؤكد");
   } else if (z.status === "potential") {
     score += 16;
-    hits.push("زيرو انعكاس محتمل");
+    hits.push("انعكاس مبكر محتمل");
   }
   if (z.peaksBottoms === "HH_HL") {
     score += 22;
@@ -130,17 +152,34 @@ export function strategyPeaksBottomsZero(candles: Candle[]): StrategyVote {
     score += 14;
     hits.push(z.structure === "second_bottom" ? "القاع الثاني" : "قيعان صاعدة");
   }
-  if (z.distToLowPct <= 1.5) {
-    score += 10;
-    hits.push(`قرب القاع ${z.distToLowPct}%`);
+  if (z.distToLowPct <= 3.0) {
+    score += 12;
+    hits.push(`بداية من القاع ${z.distToLowPct}%`);
   }
+  if (z.volSurge >= 1.2 && z.volSurge <= 2.8) {
+    score += 10;
+    hits.push(`سيولة ${z.volSurge}x`);
+  }
+  if (h0 > 0) {
+    score += 8;
+    hits.push("MACD+");
+  }
+  if (z.peaksBottoms === "LH_LL") score -= 25;
 
-  const pass = z.status !== "none" || score >= 36;
+  const pass =
+    z.status === "confirmed" &&
+    z.peaksBottoms !== "LH_LL" &&
+    z.distToLowPct <= 3.0 &&
+    z.volSurge >= 1.2 &&
+    z.volSurge <= 2.6 &&
+    h0 > 0 &&
+    candles.at(-1)!.close > candles.at(-1)!.open;
+
   return {
     id: "peaks_zero",
     name: "القمم والقيعان · زيرو انعكاس",
     pass,
-    score: Math.min(100, score),
+    score: Math.min(100, Math.max(0, score)),
     detail: hits.length
       ? `${hits.join(" · ")} · ${z.structure}`
       : `لا زيرو انعكاس · ${z.peaksBottoms}`,

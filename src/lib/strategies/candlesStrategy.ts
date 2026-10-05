@@ -1,4 +1,5 @@
 import type { Candle, CandlePattern, StrategyVote } from "../types";
+import { lastFinite, macd, sma } from "../indicators";
 
 export function detectCandlePattern(candles: Candle[]): CandlePattern {
   const c = candles.at(-1);
@@ -28,25 +29,34 @@ export function detectCandlePattern(candles: Candle[]): CandlePattern {
   return "Neutral";
 }
 
-/** 1) استراتيجية الشموع — أنماط انعكاس/زخم شرائي منفصلة */
+/** 1) استراتيجية الشموع — LOCKED after random-40 fix: pattern + volume + early rise + MACD */
 export function strategyCandles(candles: Candle[]): StrategyVote {
   const pattern = detectCandlePattern(candles);
   const c = candles.at(-1)!;
   const p = candles.at(-2)!;
+  const vols = candles.map((x) => x.volume);
+  const closes = candles.map((x) => x.close);
   const body = Math.abs(c.close - c.open);
   const range = Math.max(c.high - c.low, 1e-12);
   const lower = Math.min(c.open, c.close) - c.low;
+  const upper = c.high - Math.max(c.open, c.close);
   const bull = c.close > c.open;
-  const hammer = bull && lower >= body * 2 && lower / range >= 0.5;
+  const hammer = bull && lower >= body * 1.8 && upper <= body * 0.55 && lower / range >= 0.45;
   const engulf =
     bull &&
     p.close < p.open &&
     c.close >= p.open &&
     c.open <= p.close &&
-    body > Math.abs(p.close - p.open);
-  const strong = bull && body / range > 0.65;
-  const pin = bull && lower >= range * 0.55;
+    body > Math.abs(p.close - p.open) * 0.95;
+  const strong = bull && body / range >= 0.65 && c.close > p.high;
+  const pin = bull && lower >= range * 0.55 && upper <= range * 0.22;
   const morning = pattern === "Morning Star";
+  const volAvg = lastFinite(sma(vols, 20)) || 1;
+  const volRatio = (vols.at(-1) ?? 0) / volAvg;
+  const { hist } = macd(closes);
+  const h0 = hist.at(-1) ?? 0;
+  const recentLow = Math.min(...candles.slice(-48).map((x) => x.low));
+  const dist = ((c.close - recentLow) / Math.max(recentLow, 1e-12)) * 100;
 
   let score = 0;
   const hits: string[] = [];
@@ -55,7 +65,7 @@ export function strategyCandles(candles: Candle[]): StrategyVote {
     hits.push("مطرقة");
   }
   if (engulf || pattern === "Bullish Engulfing") {
-    score += 30;
+    score += 32;
     hits.push("ابتلاع شرائي");
   }
   if (morning) {
@@ -74,13 +84,24 @@ export function strategyCandles(candles: Candle[]): StrategyVote {
     score += 10;
     hits.push("إغلاق فوق قمة السابقة");
   }
+  if (volRatio >= 1.2 && volRatio <= 2.8) {
+    score += 14;
+    hits.push(`حجم ${volRatio.toFixed(1)}x`);
+  } else if (volRatio < 1.05) score -= 12;
+  if (dist >= 0.3 && dist <= 3.2) {
+    score += 12;
+    hits.push(`بداية صعود ${dist.toFixed(1)}%`);
+  } else if (dist > 4) score -= 18;
+  if (h0 > 0) score += 8;
+  if (!bull && upper > body * 1.4) score -= 20;
 
-  const pass = score >= 28 || hits.length >= 2;
+  const patternOk = hammer || engulf || pin || strong || morning;
+  const pass = Boolean(patternOk && score >= 48 && volRatio >= 1.15 && dist <= 3.5 && h0 > 0);
   return {
     id: "candles",
     name: "استراتيجية الشموع",
     pass,
-    score: Math.min(100, score),
-    detail: hits.length ? `${pattern} · ${hits.join(" + ")}` : `لا نمط شرائي واضح (${pattern})`,
+    score: Math.min(100, Math.max(0, score)),
+    detail: hits.length ? hits.join(" · ") : "لا نمط شرائي مبكر",
   };
 }

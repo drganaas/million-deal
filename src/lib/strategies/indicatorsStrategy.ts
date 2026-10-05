@@ -14,21 +14,15 @@ function typicalVwap(candles: Candle[]): number | null {
   return vol ? pv / vol : null;
 }
 
-function stochasticK(candles: Candle[], kPeriod = 14): number | null {
-  if (candles.length < kPeriod + 3) return null;
-  const slice = candles.slice(-kPeriod);
-  const last = candles.at(-1)!;
-  const hh = Math.max(...slice.map((c) => c.high));
-  const ll = Math.min(...slice.map((c) => c.low));
-  if (hh === ll) return 50;
-  return ((last.close - ll) / (hh - ll)) * 100;
-}
-
-/** 2) استراتيجية المؤشرات — RSI / MACD / EMA / VWAP / حجم */
+/**
+ * 2) المؤشرات — CONFIRM ONLY (solo WR failed random-40).
+ * Used with locked candles/peaks; never alone for entry.
+ */
 export function strategyIndicators(candles: Candle[]): StrategyVote {
   const closes = candles.map((c) => c.close);
   const vols = candles.map((c) => c.volume);
   const last = candles.at(-1)!;
+  const prev = candles.at(-2)!;
   const r = lastFinite(rsi(closes, 14));
   const { hist } = macd(closes);
   const h0 = hist.at(-1) ?? 0;
@@ -38,48 +32,72 @@ export function strategyIndicators(candles: Candle[]): StrategyVote {
   const volAvg = lastFinite(sma(vols, 20)) || 1;
   const volRatio = (vols.at(-1) ?? 0) / volAvg;
   const vwap = typicalVwap(candles);
-  const stoch = stochasticK(candles, 14);
+  const recentLow = Math.min(...candles.slice(-48).map((c) => c.low));
+  const dist = ((last.close - recentLow) / Math.max(recentLow, 1e-12)) * 100;
+  const rising =
+    candles.slice(-5).filter((x, i, arr) => i > 0 && arr[i].close > arr[i - 1].close)
+      .length >= 3;
+  const higherLows =
+    candles
+      .slice(-8)
+      .filter((x, i, arr) => i > 0 && arr[i].low >= arr[i - 1].low * 0.997).length >= 4;
+  const green = last.close > last.open && last.close >= prev.close;
 
   let score = 0;
   const hits: string[] = [];
 
-  if (r >= 35 && r <= 62) {
-    score += 18;
+  if (r >= 42 && r <= 58) {
+    score += 24;
     hits.push(`RSI ${r.toFixed(0)}`);
+  } else if (r > 62) {
+    score -= 24;
+    hits.push(`تشبع RSI ${r.toFixed(0)}`);
   }
   if (h0 > 0 && h0 >= h1) {
-    score += 20;
+    score += 24;
     hits.push("MACD صاعد");
   }
-  if (e20 > 0 && e50 > 0 && e20 >= e50 && last.close >= e20) {
+  if (e20 > 0 && e50 > 0 && e20 >= e50 && last.close >= e20 * 1.001) {
     score += 18;
     hits.push("EMA20≥EMA50");
   }
-  if (volRatio >= 1.15) {
-    score += 16;
-    hits.push(`حجم ${volRatio.toFixed(1)}x`);
-  }
-  if (vwap && last.close > vwap && last.close > last.open) {
-    const wasBelow = candles.slice(-12, -1).filter((c) => c.close < vwap!).length >= 5;
-    if (wasBelow) {
-      score += 16;
-      hits.push("اختراق VWAP");
-    } else {
-      score += 8;
-      hits.push("فوق VWAP");
-    }
-  }
-  if (stoch != null && stoch >= 20 && stoch <= 55) {
-    score += 12;
-    hits.push(`Stoch ${stoch.toFixed(0)}`);
-  }
+  if (volRatio >= 1.25 && volRatio <= 2.4) {
+    score += 22;
+    hits.push(`سيولة ${volRatio.toFixed(1)}x`);
+  } else if (volRatio < 1.15) score -= 14;
+  else if (volRatio > 2.8) score -= 18;
 
-  const pass = score >= 40 || hits.length >= 3;
+  if (rising && higherLows) {
+    score += 18;
+    hits.push("هيكل صاعد");
+  } else if (rising || higherLows) score += 10;
+
+  if (dist >= 0.5 && dist <= 2.6) {
+    score += 14;
+    hits.push(`بعد القاع ${dist.toFixed(1)}%`);
+  } else if (dist > 3.2) score -= 20;
+
+  if (green) score += 10;
+  if (vwap && last.close > vwap) score += 4;
+
+  const pass =
+    score >= 62 &&
+    h0 > 0 &&
+    h0 >= h1 &&
+    volRatio >= 1.25 &&
+    volRatio <= 2.5 &&
+    (rising || higherLows) &&
+    dist <= 2.8 &&
+    dist >= 0.4 &&
+    r <= 60 &&
+    green &&
+    last.close >= e20;
+
   return {
     id: "indicators",
     name: "استراتيجية المؤشرات",
     pass,
-    score: Math.min(100, score),
-    detail: hits.length ? hits.join(" · ") : "المؤشرات لم تتحول للصعود بعد",
+    score: Math.min(100, Math.max(0, score)),
+    detail: hits.length ? hits.join(" · ") : "تأكيد مؤشرات غير مكتمل",
   };
 }

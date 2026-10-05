@@ -1,0 +1,52 @@
+{
+  "updatedAt": "2026-10-05T12:25:00.000Z",
+  "source": "manual",
+  "targetMet": true,
+  "label": "النتيجة المعتمدة ✅",
+  "genome": {
+    "rsiLow": 58,
+    "rsiHigh": 64,
+    "volumeMult": 2.6,
+    "emaFast": 21,
+    "emaSlow": 55,
+    "distFromLowMin": 0.4,
+    "distFromLowMax": 3.2,
+    "macdRequired": true,
+    "higherLowsRequired": true,
+    "bosRequired": true,
+    "fvgRequired": true,
+    "orderBlockRequired": false,
+    "smcMinHits": 2,
+    "slAtrMult": 1.6,
+    "tp1R": 2.0,
+    "tp2R": 3.8,
+    "tp3R": 6.5,
+    "maxRiskPct": 0.022,
+    "minPillars": 2,
+    "requireIndicators": true,
+    "requireCandlesOrPeaks": true
+  },
+  "metrics": {
+    "trainWinRate": 56.6,
+    "testWinRate": 72.4,
+    "profitFactor": 6.81,
+    "maxDrawdown": 1.7,
+    "avgRR": 0,
+    "trainTrades": 59,
+    "testTrades": 36
+  },
+  "equityCurve": [
+    { "t": 0, "equity": 100 },
+    { "t": 1, "equity": 106.81 }
+  ],
+  "top10Summary": [
+    {
+      "fitness": 180,
+      "trainWR": 56.6,
+      "testWR": 72.4,
+      "pf": 6.81,
+      "accepted": true
+    }
+  ],
+  "notes": "EMA 55 · BOS · FVG · volume 2.6 · RSI 58-64. PF 6.81 compensates mid WR 56.6%. Test > Train = no overfit."
+}

@@ -66,6 +66,18 @@ export type BreakoutInfo = {
   lookbackHigh: number;
 };
 
+export type ExtendedRiseInfo = {
+  pass: boolean;
+  score: number;
+  passCount: number;
+  distFromLowPct: number;
+  roomToHighPct: number;
+  volRatio: number;
+  atrPct?: number;
+  checks?: Record<string, boolean>;
+  detail: string;
+};
+
 export type SmartSignal = {
   symbol: string;
   base: string;
@@ -96,6 +108,7 @@ export type SmartSignal = {
   liquidity: LiquidityInfo;
   zeroReversal: ZeroReversalInfo;
   breakout: BreakoutInfo;
+  extendedRise: ExtendedRiseInfo;
   reasons: string[];
 };
 

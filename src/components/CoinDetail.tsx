@@ -50,6 +50,14 @@ export function CoinDetail({ signal, livePrice }: { signal: SmartSignal | null; 
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Info
+          title="صعود ممتد"
+          lines={[
+            signal.extendedRise.detail,
+            `بعد القاع ${signal.extendedRise.distFromLowPct}% · مساحة ${signal.extendedRise.roomToHighPct}%`,
+            `زخم حجم ${signal.extendedRise.volRatio}x · ATR ${signal.extendedRise.atrPct ?? "-"}% · درجة ${signal.extendedRise.score}`,
+          ]}
+        />
+        <Info
           title="السيولة"
           lines={[
             `Depth Score ${signal.liquidity.totalScore}`,

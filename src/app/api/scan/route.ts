@@ -25,6 +25,13 @@ export async function GET(req: Request) {
   const interval = searchParams.get("interval") ?? "15m";
 
   try {
+    const { refreshActiveGenome } = await import("@/lib/backtest/activeGenome");
+    await refreshActiveGenome();
+  } catch {
+    /* optional genome */
+  }
+
+  try {
     const tickers = await fetchBinanceTickers();
     const universe = tickers.slice(0, limit);
 

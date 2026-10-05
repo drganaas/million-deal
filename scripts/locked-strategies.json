@@ -1,0 +1,111 @@
+{
+  "seed": 154120721,
+  "testedAt": "2026-10-04T22:55:23.977Z",
+  "picked": [
+    "ALGOUSDT",
+    "ATOMUSDT",
+    "TFUELUSDT",
+    "KNCUSDT",
+    "NXPCUSDT",
+    "IDUSDT",
+    "OGUSDT",
+    "HBARUSDT",
+    "PUNDIXUSDT",
+    "SFPUSDT",
+    "2ZUSDT",
+    "REUSDT",
+    "THETAUSDT",
+    "BREVUSDT",
+    "LSKUSDT",
+    "NEARUSDT",
+    "MASKUSDT",
+    "WIFUSDT",
+    "MOVEUSDT",
+    "XVSUSDT",
+    "OPGUSDT",
+    "HAEDALUSDT",
+    "PIXELUSDT",
+    "PEOPLEUSDT",
+    "ONGUSDT",
+    "THEUSDT",
+    "METISUSDT",
+    "ARPAUSDT",
+    "JTOUSDT",
+    "ZECUSDT",
+    "YGGUSDT",
+    "NILUSDT",
+    "SANTOSUSDT",
+    "WCTUSDT",
+    "PORTALUSDT",
+    "GMXUSDT",
+    "ZKUSDT",
+    "JOEUSDT",
+    "CHZUSDT",
+    "KAIAUSDT"
+  ],
+  "entryLocked": [
+    "candles",
+    "peaks",
+    "combined"
+  ],
+  "confirmOnly": [
+    "indicators",
+    "breakout"
+  ],
+  "metrics": {
+    "candles": {
+      "winRate": 45,
+      "avgPnl": 0.584,
+      "sustainedRate": 45,
+      "reversedFastRate": 5,
+      "n": 20,
+      "lock": true
+    },
+    "indicators": {
+      "winRate": 35,
+      "avgPnl": 0.501,
+      "sustainedRate": 40,
+      "reversedFastRate": 20,
+      "n": 20,
+      "lock": false
+    },
+    "peaks": {
+      "winRate": 50,
+      "avgPnl": 1.083,
+      "sustainedRate": 55,
+      "reversedFastRate": 5,
+      "n": 20,
+      "lock": true
+    },
+    "breakout": {
+      "winRate": 35,
+      "avgPnl": 0.426,
+      "sustainedRate": 35,
+      "reversedFastRate": 15,
+      "n": 20,
+      "lock": false
+    },
+    "combined": {
+      "winRate": 50,
+      "avgPnl": 1.271,
+      "sustainedRate": 50,
+      "reversedFastRate": 5,
+      "n": 20,
+      "lock": true
+    }
+  },
+  "rules": {
+    "entryRequires": [
+      "extendedRiseGate",
+      "candles OR peaks"
+    ],
+    "confirmRequires": [
+      "indicators"
+    ],
+    "reject": [
+      "breakout_solo",
+      "indicators_solo",
+      "late_peak_break"
+    ]
+  }
+}

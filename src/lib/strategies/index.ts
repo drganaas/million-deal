@@ -3,7 +3,8 @@ export { strategyCandles, detectCandlePattern } from "./candlesStrategy";
 export { strategyIndicators } from "./indicatorsStrategy";
 export { strategyPeaksBottomsZero, analyzeZeroReversal } from "./peaksBottomsZero";
 export { strategyBreakoutSupport, analyzeBreakoutSupport } from "./breakoutSupport";
-// Legacy helpers still used by CoinDetail / diagnostics
+export { evaluateExtendedRise } from "./extendedRise";
+export { STRATEGY_LOCK } from "./lockedStrategies";
 export { strategyHiddenCandle } from "./hiddenCandle";
 export { strategyLiquidityGrab } from "./liquidityGrab";
 export { strategySmc } from "./smc";
