@@ -1,5 +1,6 @@
 "use client";
 
+import { Eye } from "lucide-react";
 import type { SmartSignal } from "@/lib/types";
 
 function fmt(n: number) {
@@ -12,16 +13,18 @@ function fmt(n: number) {
 export function SignalCard({
   signal,
   active,
+  watched,
   onSelect,
+  onWatch,
 }: {
   signal: SmartSignal;
   active?: boolean;
+  watched?: boolean;
   onSelect: () => void;
+  onWatch: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
+    <div
       className={`w-full rounded-2xl border p-3 text-start transition ${
         active
           ? "border-gold bg-gradient-to-br from-gold/15 to-transparent shadow-[0_0_24px_rgba(212,160,23,0.12)]"
@@ -29,13 +32,23 @@ export function SignalCard({
       }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <div>
+        <button type="button" onClick={onSelect} className="text-start">
           <p className="font-semibold text-fg">{signal.base}/USDT</p>
           <p className="font-mono text-xs text-muted">{fmt(signal.last)}</p>
-        </div>
-        <div className="text-end">
-          <p className="font-mono text-lg font-bold text-gold-soft">{signal.successRate}%</p>
-          <p className="text-[10px] uppercase tracking-wide text-muted">{signal.agreeCount}/4</p>
+        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            title="وضع تحت المراقبة"
+            onClick={onWatch}
+            className={watched ? "text-gold" : "text-muted hover:text-gold-soft"}
+          >
+            <Eye size={16} />
+          </button>
+          <button type="button" onClick={onSelect} className="text-end">
+            <p className="font-mono text-lg font-bold text-gold-soft">{signal.successRate}%</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted">{signal.agreeCount}/4</p>
+          </button>
         </div>
       </div>
       <div className="mt-2 flex flex-wrap gap-1">
@@ -56,6 +69,6 @@ export function SignalCard({
           </span>
         ))}
       </div>
-    </button>
+    </div>
   );
 }

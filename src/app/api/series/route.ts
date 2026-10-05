@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchKlines, fetchDepth, fetchSecondaryPrice, fetchCoinGeckoMeta } from "@/lib/market/binance";
+import { BINANCE_KLINE_INTERVALS, toBinanceKlineInterval } from "@/lib/market/frames";
 import { calculateSmartEntry } from "@/lib/strategies/calculateSmartEntry";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +9,9 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const symbol = (searchParams.get("symbol") ?? "BTCUSDT").toUpperCase();
   const interval = searchParams.get("interval") ?? "15m";
+  if (!BINANCE_KLINE_INTERVALS.has(interval)) {
+    return NextResponse.json({ ok: false, error: `binance_no_kline_${interval}` }, { status: 400 });
+  }
 
   try {
     try {
@@ -17,8 +21,9 @@ export async function GET(req: Request) {
       /* genome optional */
     }
 
+    const kline = toBinanceKlineInterval(interval);
     const [candles, liquidity, secondary] = await Promise.all([
-      fetchKlines(symbol, interval, 150),
+      fetchKlines(symbol, kline.interval, kline.limit ?? 150),
       fetchDepth(symbol, 50),
       fetchSecondaryPrice(symbol),
     ]);

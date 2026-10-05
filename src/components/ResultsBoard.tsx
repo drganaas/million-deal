@@ -1,5 +1,6 @@
 "use client";
 
+import { Eye } from "lucide-react";
 import type { SmartSignal } from "@/lib/types";
 
 function fmt(n: number) {
@@ -25,11 +26,15 @@ function Pill({ ok, label }: { ok: boolean; label: string }) {
 export function ResultsBoard({
   rows,
   selected,
+  watchlist,
   onShow,
+  onWatch,
 }: {
   rows: SmartSignal[];
   selected?: string;
+  watchlist: string[];
   onShow: (symbol: string) => void;
+  onWatch: (symbol: string) => void;
 }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-line bg-surface shadow-[0_0_0_1px_rgba(212,160,23,0.06)]">
@@ -84,13 +89,25 @@ export function ResultsBoard({
                 <td className="px-3 py-3 font-mono text-danger">{fmt(row.sl)}</td>
                 <td className="px-3 py-3 font-mono text-gold-soft">{row.successRate}%</td>
                 <td className="px-3 py-3">
-                  <button
-                    type="button"
-                    className="rounded-full bg-gold px-3 py-1.5 text-xs font-semibold text-bg"
-                    onClick={() => onShow(row.symbol)}
-                  >
-                    فتح
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      title="وضع تحت المراقبة"
+                      className={`rounded-full border p-1.5 ${
+                        watchlist.includes(row.symbol) ? "border-gold text-gold" : "border-line text-muted"
+                      }`}
+                      onClick={() => onWatch(row.symbol)}
+                    >
+                      <Eye size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-full bg-gold px-3 py-1.5 text-xs font-semibold text-bg"
+                      onClick={() => onShow(row.symbol)}
+                    >
+                      فتح
+                    </button>
+                  </div>
                 </td>
               </tr>
             );

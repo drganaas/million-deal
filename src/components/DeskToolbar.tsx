@@ -3,6 +3,7 @@
 import {
   CandlestickChart,
   Clock,
+  Eye,
   GitCommit,
   Layers,
   Mountain,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import type { LiveCandleHit } from "@/hooks/useCandleScan";
 import { roundPx } from "@/lib/indicators";
+import { CHART_FRAMES } from "@/lib/market/frames";
 
 export type DeskToolId =
   | "manual-search"
@@ -41,6 +43,7 @@ export type LevelInfo = {
   support: number | null;
   resistance: number | null;
   bottom: number | null;
+  bottomType: string | null;
   boost: number | null;
   price: number | null;
 };
@@ -58,7 +61,6 @@ const TOOLS: Array<{ id: DeskToolId; label: string; Icon: typeof Search }> = [
   { id: "deploy-version", label: "نسخة النشر", Icon: GitCommit },
 ];
 
-const FRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"] as const;
 const KINDS: Array<{ id: TradeKind; label: string; src: string }> = [
   { id: "spot", label: "Spot", src: "/icons/spot.svg" },
   { id: "scalp", label: "Scalp", src: "/icons/scalping.svg" },
@@ -84,6 +86,7 @@ export function DeskToolbar({
   hits,
   searchBusy,
   onPickCoin,
+  onAddCoin,
   watchlist,
   onRemoveCoin,
   levels,
@@ -104,6 +107,7 @@ export function DeskToolbar({
   hits: CoinHit[];
   searchBusy: boolean;
   onPickCoin: (symbol: string) => void;
+  onAddCoin: (symbol: string) => void;
   watchlist: string[];
   onRemoveCoin: (symbol: string) => void;
   levels: LevelInfo;
@@ -112,7 +116,6 @@ export function DeskToolbar({
   liveCandles: LiveCandleHit[];
   positive: Partial<Record<DeskToolId, boolean>>;
 }) {
-  const searchOpen = active === "manual-search" || active === "add-coins";
   const topStrength = liveCandles[0]?.strength ?? candleStrength;
   const hasCoin = Boolean(selectedBase);
 
@@ -135,6 +138,18 @@ export function DeskToolbar({
           >
             <Icon size={14} />
             <span>{label}</span>
+            {id === "support" && hasCoin ? (
+              <span className="font-mono text-[10px] text-teal">{px(levels.support)}</span>
+            ) : null}
+            {id === "resistance" && hasCoin ? (
+              <span className="font-mono text-[10px] text-orange-400">{px(levels.resistance)}</span>
+            ) : null}
+            {id === "bottoms" && hasCoin ? (
+              <span className="font-mono text-[10px] text-sky-400">
+                {px(levels.bottom)}
+                {levels.bottomType ? ` · ${levels.bottomType}` : ""}
+              </span>
+            ) : null}
             {id === "deploy-version" ? <span className="font-mono text-gold">v{version}</span> : null}
             {id === "bullish-candles" && topStrength > 0 ? (
               <span className="rounded-full bg-teal/20 px-1.5 py-0.5 font-mono text-[10px] text-teal">{topStrength}%</span>
@@ -143,29 +158,83 @@ export function DeskToolbar({
         ))}
       </div>
 
-      {searchOpen && (
+      {active === "manual-search" && (
         <div className="rounded-xl border border-line bg-inset p-3">
           <input
             value={query}
             onChange={(e) => onQuery(e.target.value)}
-            placeholder={active === "add-coins" ? "أضف عملة مثل AVAX أو PEPE…" : "ابحث عن عملة وافتحها فوراً…"}
+            placeholder="ابحث عن عملة وافتحها فوراً…"
             className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-fg outline-none focus:border-gold"
           />
           {searchBusy ? <p className="mt-2 text-[11px] text-muted">جاري البحث…</p> : null}
           <div className="mt-2 max-h-40 overflow-y-auto">
             {hits.map((h) => (
-              <button
-                key={h.symbol}
-                type="button"
-                onClick={() => onPickCoin(h.symbol)}
-                className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm hover:bg-white/5"
-              >
+              <div key={h.symbol} className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm">
+                <button type="button" onClick={() => onPickCoin(h.symbol)} className="font-semibold">
+                  {h.base}
+                </button>
+                <span className={h.changePct >= 0 ? "text-teal" : "text-danger"}>
+                  {h.changePct >= 0 ? "+" : ""}
+                  {h.changePct.toFixed(1)}%
+                </span>
+                <button
+                  type="button"
+                  title="وضع تحت المراقبة"
+                  onClick={() => onAddCoin(h.symbol)}
+                  className={watchlist.includes(h.symbol) ? "text-gold" : "text-muted hover:text-gold-soft"}
+                >
+                  <Eye size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {active === "add-coins" && (
+        <div className="rounded-xl border border-line bg-inset p-3">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const raw = query.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+              if (!raw) return;
+              onAddCoin(raw.endsWith("USDT") ? raw : `${raw}USDT`);
+              onQuery("");
+            }}
+          >
+            <input
+              value={query}
+              onChange={(e) => onQuery(e.target.value)}
+              placeholder="أدخل رمز العملة ثم إضافة…"
+              className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-fg outline-none focus:border-gold"
+            />
+            <button
+              type="submit"
+              className="mt-2 inline-flex items-center gap-1 rounded-lg border border-gold/50 bg-gold/15 px-3 py-1.5 text-[11px] font-semibold text-gold-soft"
+            >
+              <Plus size={12} />
+              إضافة
+            </button>
+          </form>
+          {searchBusy ? <p className="mt-2 text-[11px] text-muted">جاري البحث في بينانس…</p> : null}
+          <div className="mt-2 max-h-40 overflow-y-auto">
+            {hits.map((h) => (
+              <div key={h.symbol} className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm">
                 <span className="font-semibold">{h.base}</span>
                 <span className={h.changePct >= 0 ? "text-teal" : "text-danger"}>
                   {h.changePct >= 0 ? "+" : ""}
                   {h.changePct.toFixed(1)}%
                 </span>
-              </button>
+                <button
+                  type="button"
+                  title="إضافة"
+                  onClick={() => onAddCoin(h.symbol)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-0.5 text-[11px] text-gold-soft hover:border-gold"
+                >
+                  <Plus size={12} />
+                  إضافة
+                </button>
+              </div>
             ))}
           </div>
           {watchlist.length > 0 && (
@@ -188,7 +257,7 @@ export function DeskToolbar({
 
       {active === "frames" && (
         <div className="flex flex-wrap gap-1.5">
-          {FRAMES.map((tf) => (
+          {CHART_FRAMES.map((tf) => (
             <button
               key={tf}
               type="button"
@@ -242,6 +311,7 @@ export function DeskToolbar({
           ready={hasCoin}
           rows={[
             { label: "آخر قاع", value: px(levels.bottom), color: "text-sky-400" },
+            { label: "نوع القاع", value: levels.bottomType ?? "—", color: "text-gold-soft" },
             { label: "الدعم الحالي", value: px(levels.support), color: "text-teal" },
           ]}
         />
@@ -298,43 +368,56 @@ function LevelCard({
 export function CandleScanStrip({
   hits,
   universe,
-  busy,
+  watchlist,
   onPick,
+  onWatch,
 }: {
   hits: LiveCandleHit[];
   universe: number;
-  busy: boolean;
+  watchlist: string[];
   onPick: (symbol: string) => void;
+  onWatch: (symbol: string) => void;
 }) {
   return (
     <div className="border-t border-line bg-inset px-3 py-2">
       <div className="mb-1.5 flex items-center justify-between text-[11px] text-muted">
-        <span>شموع صاعدة لحظية · Binance</span>
-        <span className="text-teal">{busy ? "مسح…" : `${universe} زوج · ${hits.length} شمعة`}</span>
+        <span>بحث تلقائي لحظي · Binance WebSocket · كل الأزواج</span>
+        <span className="text-teal">{universe} زوج · {hits.length} نتيجة</span>
       </div>
       <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-        {hits.slice(0, 14).map((c) => (
-          <button
-            key={c.symbol}
-            type="button"
-            onClick={() => onPick(c.symbol)}
-            className="w-[108px] shrink-0 rounded-lg border border-line bg-bg px-2 py-1.5 text-start hover:border-gold/50"
-          >
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-[11px] font-semibold">{c.base}</span>
-              <span className="font-mono text-[10px] text-teal">{c.strength}%</span>
+        {hits.map((c) => {
+          const watched = watchlist.includes(c.symbol);
+          return (
+            <div
+              key={c.symbol}
+              className={`w-[118px] shrink-0 rounded-lg border px-2 py-1.5 ${
+                watched ? "border-gold bg-gold/10" : "border-line bg-bg"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-1">
+                <button type="button" onClick={() => onPick(c.symbol)} className="text-[11px] font-semibold">
+                  {c.base}
+                </button>
+                <button
+                  type="button"
+                  title="وضع تحت المراقبة"
+                  onClick={() => onWatch(c.symbol)}
+                  className={watched ? "text-gold" : "text-muted hover:text-gold-soft"}
+                >
+                  <Eye size={12} />
+                </button>
+              </div>
+              <div className="mt-0.5 font-mono text-[10px] text-teal">{c.strength}%</div>
+              <div className="mt-1 h-1 overflow-hidden rounded-full bg-black/40">
+                <div
+                  className="h-full rounded-full bg-gradient-to-l from-teal to-gold"
+                  style={{ width: `${Math.max(8, Math.min(100, c.strength))}%` }}
+                />
+              </div>
             </div>
-            <div className="mt-1 h-1 overflow-hidden rounded-full bg-black/40">
-              <div
-                className="h-full rounded-full bg-gradient-to-l from-teal to-gold"
-                style={{ width: `${Math.max(8, Math.min(100, c.strength))}%` }}
-              />
-            </div>
-          </button>
-        ))}
-        {!hits.length ? (
-          <p className="py-1 text-[11px] text-muted">{busy ? "يتصل ببينانس…" : "لا شموع صاعدة قوية الآن"}</p>
-        ) : null}
+          );
+        })}
+        {!hits.length ? <p className="py-1 text-[11px] text-muted">بانتظار شموع صاعدة من البث اللحظي…</p> : null}
       </div>
     </div>
   );

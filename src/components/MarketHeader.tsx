@@ -1,9 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { Activity, RefreshCw } from "lucide-react";
-
-const TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"] as const;
+import { Radio, RefreshCw } from "lucide-react";
+import { CHART_FRAMES } from "@/lib/market/frames";
 
 export function MarketHeader({
   email,
@@ -34,13 +33,13 @@ export function MarketHeader({
         </div>
 
         <div className="ms-auto flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 rounded-full border border-line bg-inset p-1">
-            {TIMEFRAMES.map((tf) => (
+          <div className="flex max-w-full flex-wrap items-center gap-1 rounded-full border border-line bg-inset p-1">
+            {CHART_FRAMES.map((tf) => (
               <button
                 key={tf}
                 type="button"
                 onClick={() => onInterval(tf)}
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                   interval === tf ? "bg-gold text-bg" : "text-muted hover:text-fg"
                 }`}
               >
@@ -50,12 +49,13 @@ export function MarketHeader({
           </div>
 
           <span
-            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] ${
-              live ? "border-teal/40 text-teal" : "border-line text-muted"
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+              live ? "border-teal bg-teal/15 text-teal" : "border-danger bg-danger/15 text-danger"
             }`}
           >
-            <Activity size={12} />
-            {live ? "Live WS" : "Offline"}
+            <span className={`h-2 w-2 rounded-full ${live ? "bg-teal" : "bg-danger"}`} />
+            <Radio size={12} />
+            {live ? "على الهواء" : "منقطع"}
           </span>
 
           <button

@@ -52,3 +52,56 @@ export function strategyBottomDetector(candles: Candle[]): StrategyVote {
       : `بعيد عن القاع (${bottom.distancePct.toFixed(2)}%)`,
   };
 }
+
+export type ChartBottomMark = {
+  price: number;
+  type: "قاع رئيسي" | "قاع فرعي" | "Double Bottom" | "Triple Bottom";
+};
+
+export function chartLevelMarks(candles: Candle[]): {
+  support: number | null;
+  resistance: number | null;
+  bottoms: ChartBottomMark[];
+} {
+  if (candles.length < 10) return { support: null, resistance: null, bottoms: [] };
+
+  const look = 3;
+  const lows: number[] = [];
+  const highs: number[] = [];
+  for (let i = look; i < candles.length - look; i++) {
+    const low = candles[i].low;
+    const high = candles[i].high;
+    let isLow = true;
+    let isHigh = true;
+    for (let j = 1; j <= look; j++) {
+      if (candles[i - j].low <= low || candles[i + j].low < low) isLow = false;
+      if (candles[i - j].high >= high || candles[i + j].high > high) isHigh = false;
+    }
+    if (isLow) lows.push(low);
+    if (isHigh) highs.push(high);
+  }
+
+  const support = lows.at(-1) ?? null;
+  const resistance = highs.at(-1) ?? null;
+  const atl = Math.min(...candles.map((c) => c.low));
+  const bottoms: ChartBottomMark[] = [];
+  const used = new Set<number>();
+
+  for (let i = 0; i < lows.length; i++) {
+    if (used.has(i)) continue;
+    const cluster = [i];
+    for (let j = i + 1; j < lows.length; j++) {
+      if (used.has(j)) continue;
+      if (Math.abs(lows[j]! - lows[i]!) / Math.max(lows[i]!, 1e-12) < 0.018) cluster.push(j);
+    }
+    cluster.forEach((idx) => used.add(idx));
+    const price = lows[i]!;
+    let type: ChartBottomMark["type"] = "قاع فرعي";
+    if (cluster.length >= 3) type = "Triple Bottom";
+    else if (cluster.length === 2) type = "Double Bottom";
+    else if (Math.abs(price - atl) / atl < 0.03) type = "قاع رئيسي";
+    bottoms.push({ price, type });
+  }
+
+  return { support, resistance, bottoms };
+}

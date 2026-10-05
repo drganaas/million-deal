@@ -22,6 +22,8 @@ export function useBinanceTicker(symbol: string, onPrice: (price: number) => voi
         /* ignore */
       }
     };
-    return () => ws.close();
+    return () => {
+      ws.close();
+    };
   }, [symbol]);
 }

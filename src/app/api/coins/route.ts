@@ -16,7 +16,7 @@ export async function GET(req: Request) {
 
     const now = Date.now();
     if (!cache || now - cache.at > TTL_MS) {
-      const tickers = await fetchBinanceTickers();
+      const tickers = await fetchBinanceTickers({ minQuoteVolume: 0 });
       cache = {
         at: now,
         coins: tickers.map((t) => ({
