@@ -19,7 +19,7 @@ import type { BottomType, Candle, SmartSignal } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
 const SESSION_KEY = "md.session";
-const APP_VERSION = "1.2.5";
+const APP_VERSION = "1.2.6";
 const BOTTOM_AR: Record<BottomType, string> = {
   Historical: "تاريخي",
   Double: "مزدوج",
@@ -77,7 +77,9 @@ export function Dashboard() {
   const setAlert = useAppStore((s) => s.setAlert);
   const setSignals = useAppStore((s) => s.setSignals);
   const [interval, setIntervalTf] = useState("15m");
-  const { refresh, error } = useMarketScan(interval);
+  const marketScan = useMarketScan(interval);
+  const { refresh, error, running: scanRunning, live: scanLive, scanEvery, setScanEvery, nextScanAt, start: startScan, stop: stopScan } =
+    marketScan;
   const liveScan = useCandleScan();
   const [candles, setCandles] = useState<Candle[]>([]);
   const [detail, setDetail] = useState<SmartSignal | null>(null);
@@ -243,7 +245,13 @@ export function Dashboard() {
         onInterval={setIntervalTf}
         loading={loading}
         onRefresh={() => void refresh()}
-        live={liveScan.live}
+        live={scanLive || liveScan.live}
+        running={scanRunning}
+        onStart={startScan}
+        onStop={stopScan}
+        scanEvery={scanEvery}
+        onScanEvery={setScanEvery}
+        nextScanAt={nextScanAt}
         version={APP_VERSION}
       />
       <LiveTicker />
