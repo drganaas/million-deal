@@ -19,7 +19,7 @@ import type { BottomType, Candle, SmartSignal } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
 const SESSION_KEY = "md.session";
-const APP_VERSION = "1.2.6";
+const APP_VERSION = "1.2.7";
 const BOTTOM_AR: Record<BottomType, string> = {
   Historical: "تاريخي",
   Double: "مزدوج",
@@ -314,6 +314,8 @@ export function Dashboard() {
           watchlist={watchlist}
           running={liveScan.running}
           live={liveScan.live}
+          interval={interval}
+          tradeKind={tradeKind}
           onStart={liveScan.start}
           onStop={liveScan.stop}
           onPick={(s) => void pickCoin(s)}
