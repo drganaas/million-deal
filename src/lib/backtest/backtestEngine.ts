@@ -247,7 +247,7 @@ export function evaluateWithHoldout(
   trainBundles: HistoryBundle[],
   testBundles: HistoryBundle[],
   genome: StrategyGenome,
-  _targets?: {
+  targets?: {
     minTrainWR?: number;
     minTestWR?: number;
     minPF?: number;
@@ -255,6 +255,7 @@ export function evaluateWithHoldout(
     minTestTrades?: number;
   },
 ): SplitResult {
+  void targets;
   const train = backtestGenome(trainBundles, genome, { step: 2, cooldown: 4 });
   const test = backtestGenome(testBundles, genome, { step: 2, cooldown: 4 });
   const gate = passesAcceptance(train, test);
