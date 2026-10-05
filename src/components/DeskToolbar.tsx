@@ -3,7 +3,6 @@
 import { useState } from "react";
 import {
   CandlestickChart,
-  Check,
   Clock,
   Copy,
   Droplets,
@@ -20,13 +19,8 @@ import {
   X,
 } from "lucide-react";
 import type { LiveCandleHit } from "@/hooks/useCandleScan";
+import { formatCandleCopyText, formatVolume } from "@/lib/formatCandleCopy";
 import { roundPx } from "@/lib/indicators";
-import {
-  copyText,
-  formatLiquidityVolume,
-  formatTradeCopy,
-  isConfirmedBullishCandle,
-} from "@/lib/formatTradeCopy";
 import { CHART_FRAMES } from "@/lib/market/frames";
 import type { SmartSignal } from "@/lib/types";
 
@@ -377,14 +371,6 @@ function LevelCard({
   );
 }
 
-function fmtShortVol(n: number) {
-  if (!Number.isFinite(n) || n <= 0) return "—";
-  if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
-  if (n >= 1e3) return `${(n / 1e3).toFixed(0)}K`;
-  return n.toFixed(0);
-}
-
 export function CandleScanStrip({
   hits,
   universe,
@@ -413,30 +399,45 @@ export function CandleScanStrip({
   const [copying, setCopying] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
-  async function copyTradeCard(c: LiveCandleHit) {
-    if (!isConfirmedBullishCandle(c)) return;
+  async function copyCard(c: LiveCandleHit) {
+    const confirmed = c.strength >= 70 && c.changePct > 0;
+    if (!confirmed) return;
     setCopying(c.symbol);
     try {
-      onPick(c.symbol);
+      let entry = c.price;
+      let tp1 = c.price;
+      let tp2 = c.price;
+      let tp3 = c.price;
+      let sl = c.price;
       const res = await fetch(`/api/series?symbol=${encodeURIComponent(c.symbol)}&interval=${encodeURIComponent(interval)}`, {
         cache: "no-store",
       });
       const data = (await res.json()) as { ok?: boolean; signal?: SmartSignal | null };
-      if (!data.ok || !data.signal) throw new Error("no signal");
-      const text = formatTradeCopy(data.signal, {
+      if (data.ok && data.signal) {
+        entry = data.signal.entry;
+        tp1 = data.signal.tp1;
+        tp2 = data.signal.tp2;
+        tp3 = data.signal.tp3;
+        sl = data.signal.sl;
+      }
+      const text = formatCandleCopyText({
+        base: c.base,
+        price: c.price,
         tradeKind,
         interval,
-        candleStrength: c.strength,
+        entry,
+        tp1,
+        tp2,
+        tp3,
+        sl,
+        liquidityVolume: c.quoteVolume,
         momentumPct: c.changePct,
-        quoteVolume: c.quoteVolume,
       });
-      const ok = await copyText(text);
-      if (ok) {
-        setCopied(c.symbol);
-        window.setTimeout(() => setCopied((s) => (s === c.symbol ? null : s)), 2000);
-      }
+      await navigator.clipboard.writeText(text);
+      setCopied(c.symbol);
+      window.setTimeout(() => setCopied((s) => (s === c.symbol ? null : s)), 2000);
     } catch {
-      /* keep UI calm */
+      /* keep silent */
     } finally {
       setCopying(null);
     }
@@ -481,47 +482,36 @@ export function CandleScanStrip({
       <div className="flex gap-1.5 overflow-x-auto pb-0.5">
         {hits.map((c) => {
           const watched = watchlist.includes(c.symbol);
-          const confirmed = isConfirmedBullishCandle(c);
-          const momSign = c.changePct >= 0 ? "+" : "";
+          const confirmed = c.strength >= 70 && c.changePct > 0;
+          const busy = copying === c.symbol;
+          const done = copied === c.symbol;
           return (
             <div
               key={c.symbol}
-              className={`w-[148px] shrink-0 rounded-lg border px-2 py-1.5 ${
-                confirmed
-                  ? watched
-                    ? "border-gold bg-gold/10"
-                    : "border-teal/40 bg-bg"
-                  : watched
-                    ? "border-gold/50 bg-gold/5 opacity-80"
-                    : "border-line bg-bg opacity-70"
+              className={`w-[132px] shrink-0 rounded-lg border px-2 py-1.5 ${
+                watched ? "border-gold bg-gold/10" : "border-line bg-bg"
               }`}
             >
               <div className="flex items-center justify-between gap-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (confirmed) void copyTradeCard(c);
-                    else onPick(c.symbol);
-                  }}
-                  className="text-[11px] font-semibold"
-                  title={confirmed ? "اختيار + نسخ الصفقة" : "اختيار العملة"}
-                >
+                <button type="button" onClick={() => onPick(c.symbol)} className="text-[11px] font-semibold">
                   {c.base}
                 </button>
-                <div className="flex items-center gap-1">
-                  {confirmed ? (
-                    <button
-                      type="button"
-                      title="نسخ الدخول والأهداف ووقف الخسارة"
-                      disabled={copying === c.symbol}
-                      onClick={() => void copyTradeCard(c)}
-                      className={
-                        copied === c.symbol ? "text-teal" : "text-gold-soft hover:text-gold disabled:opacity-50"
-                      }
-                    >
-                      {copied === c.symbol ? <Check size={12} /> : <Copy size={12} />}
-                    </button>
-                  ) : null}
+                <div className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    title={confirmed ? "نسخ الدخول والأهداف ووقف الخسارة" : "النسخ للشموع الصاعدة المؤكدة فقط"}
+                    disabled={!confirmed || busy}
+                    onClick={() => void copyCard(c)}
+                    className={
+                      done
+                        ? "text-teal"
+                        : confirmed
+                          ? "text-muted hover:text-gold-soft"
+                          : "cursor-not-allowed text-muted/40"
+                    }
+                  >
+                    <Copy size={12} />
+                  </button>
                   <button
                     type="button"
                     title="وضع تحت المراقبة"
@@ -532,29 +522,24 @@ export function CandleScanStrip({
                   </button>
                 </div>
               </div>
-              <div className="mt-0.5 flex items-center justify-between gap-1 font-mono text-[10px]">
-                <span className="text-teal">{c.strength}%</span>
-                {confirmed ? (
-                  <span className="rounded bg-teal/15 px-1 text-[9px] font-semibold text-teal">مؤكدة ✅</span>
-                ) : (
-                  <span className="text-[9px] text-muted">صاعدة</span>
-                )}
+              <div
+                className="mt-1 flex items-center gap-1 rounded-md border border-teal/30 bg-teal/10 px-1 py-0.5"
+                title={`حجم السيولة التي دخلت العملة: ${formatVolume(c.quoteVolume)}`}
+              >
+                <Droplets size={11} className="shrink-0 text-teal" />
+                <span className="truncate font-mono text-[9px] text-teal">{formatVolume(c.quoteVolume)}</span>
               </div>
               <div
-                className="mt-1 flex items-center gap-1 rounded border border-line/60 bg-black/25 px-1 py-0.5 text-[9px]"
-                title={`💧 حجم السيولة: ${formatLiquidityVolume(c.quoteVolume)} · ⚡ نسبة الزخم: ${momSign}${c.changePct.toFixed(2)}%`}
+                className="mt-0.5 flex items-center gap-1 rounded-md border border-gold/30 bg-gold/10 px-1 py-0.5"
+                title={`نسبة الزخم: ${c.changePct.toFixed(2)}%`}
               >
-                <span className="inline-flex items-center gap-0.5 text-sky-300" title="حجم السيولة">
-                  <Droplets size={9} />
-                  {fmtShortVol(c.quoteVolume)}
-                </span>
-                <span className="text-muted">·</span>
-                <span className="inline-flex items-center gap-0.5 text-amber-300" title="نسبة الزخم %">
-                  <Zap size={9} />
-                  {momSign}
-                  {c.changePct.toFixed(1)}%
+                <Zap size={11} className="shrink-0 text-gold" />
+                <span className="font-mono text-[9px] text-gold-soft">
+                  {c.changePct >= 0 ? "+" : ""}
+                  {c.changePct.toFixed(2)}%
                 </span>
               </div>
+              <div className="mt-0.5 font-mono text-[10px] text-teal">{c.strength}%</div>
               <div className="mt-1 h-1 overflow-hidden rounded-full bg-black/40">
                 <div
                   className="h-full rounded-full bg-gradient-to-l from-teal to-gold"
