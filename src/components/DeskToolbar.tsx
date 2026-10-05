@@ -19,7 +19,12 @@ import {
   X,
 } from "lucide-react";
 import type { LiveCandleHit } from "@/hooks/useCandleScan";
-import { formatCandleCopyText, formatVolume } from "@/lib/formatCandleCopy";
+import {
+  buildTradeLevels,
+  formatCandleCopyText,
+  formatVolume,
+  tradeLevelsValid,
+} from "@/lib/formatCandleCopy";
 import { roundPx } from "@/lib/indicators";
 import { CHART_FRAMES } from "@/lib/market/frames";
 import type { SmartSignal } from "@/lib/types";
@@ -404,32 +409,36 @@ export function CandleScanStrip({
     if (!confirmed) return;
     setCopying(c.symbol);
     try {
-      let entry = c.price;
-      let tp1 = c.price;
-      let tp2 = c.price;
-      let tp3 = c.price;
-      let sl = c.price;
+      let levels = buildTradeLevels(c.price);
       const res = await fetch(`/api/series?symbol=${encodeURIComponent(c.symbol)}&interval=${encodeURIComponent(interval)}`, {
         cache: "no-store",
       });
       const data = (await res.json()) as { ok?: boolean; signal?: SmartSignal | null };
       if (data.ok && data.signal) {
-        entry = data.signal.entry;
-        tp1 = data.signal.tp1;
-        tp2 = data.signal.tp2;
-        tp3 = data.signal.tp3;
-        sl = data.signal.sl;
+        const fromSignal = {
+          entry: data.signal.entry,
+          sl: data.signal.sl,
+          tp1: data.signal.tp1,
+          tp2: data.signal.tp2,
+          tp3: data.signal.tp3,
+        };
+        levels = tradeLevelsValid(fromSignal)
+          ? fromSignal
+          : buildTradeLevels(data.signal.entry > 0 ? data.signal.entry : c.price);
+      }
+      if (!tradeLevelsValid(levels)) {
+        levels = buildTradeLevels(c.price);
       }
       const text = formatCandleCopyText({
         base: c.base,
         price: c.price,
         tradeKind,
         interval,
-        entry,
-        tp1,
-        tp2,
-        tp3,
-        sl,
+        entry: levels.entry,
+        tp1: levels.tp1,
+        tp2: levels.tp2,
+        tp3: levels.tp3,
+        sl: levels.sl,
         liquidityVolume: c.quoteVolume,
         momentumPct: c.changePct,
       });

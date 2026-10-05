@@ -96,6 +96,14 @@ export function calculateSmartEntry(args: {
     tp2 = entry + Math.max(risk * 3.8, entry * 0.055);
     tp3 = entry + Math.max(risk * 6.5, entry * 0.1);
   }
+  // حماية: الدخول ≠ الوقف ≠ الأهداف
+  if (!(sl < entry && tp1 > entry && tp2 > tp1 && tp3 > tp2)) {
+    const risk = Math.max(entry * 0.01, atrVal * 1.2);
+    sl = entry - risk;
+    tp1 = entry + risk * 2;
+    tp2 = entry + risk * 3.8;
+    tp3 = entry + risk * 6.5;
+  }
 
   const adopted = getAdoptedMetrics();
   const avgScore = pillars.reduce((a, p) => a + p.score, 0) / pillars.length;

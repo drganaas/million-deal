@@ -56,6 +56,48 @@ export function formatVolume(n: number): string {
   return `$${Math.round(n)}`;
 }
 
+/** مستويات تداول منفصلة — ممنوع أن يتساوى الدخول مع الوقف أو الأهداف */
+export function buildTradeLevels(entry: number): {
+  entry: number;
+  sl: number;
+  tp1: number;
+  tp2: number;
+  tp3: number;
+} {
+  const e = entry;
+  if (!Number.isFinite(e) || e <= 0) {
+    return { entry: 0, sl: 0, tp1: 0, tp2: 0, tp3: 0 };
+  }
+  let sl = e - Math.max(e * 0.01, e * 0.009);
+  const maxRisk = e * 0.022;
+  if (e - sl > maxRisk) sl = e - maxRisk;
+  if (e - sl < e * 0.006) sl = e - e * 0.006;
+  const risk = Math.max(e - sl, e * 0.006);
+  sl = e - risk;
+  const tp1 = e + Math.max(risk * 2.0, e * 0.025);
+  const tp2 = e + Math.max(risk * 3.8, e * 0.055);
+  const tp3 = e + Math.max(risk * 6.5, e * 0.1);
+  return {
+    entry: roundPx(e),
+    sl: roundPx(sl),
+    tp1: roundPx(tp1),
+    tp2: roundPx(tp2),
+    tp3: roundPx(tp3),
+  };
+}
+
+export function tradeLevelsValid(levels: {
+  entry: number;
+  sl: number;
+  tp1: number;
+  tp2: number;
+  tp3: number;
+}): boolean {
+  const { entry, sl, tp1, tp2, tp3 } = levels;
+  if (![entry, sl, tp1, tp2, tp3].every((n) => Number.isFinite(n) && n > 0)) return false;
+  return sl < entry && tp1 > entry && tp2 > tp1 && tp3 > tp2;
+}
+
 export function formatCandleCopyText(input: {
   base: string;
   price: number;

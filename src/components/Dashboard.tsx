@@ -19,7 +19,7 @@ import type { BottomType, Candle, SmartSignal } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
 const SESSION_KEY = "md.session";
-const APP_VERSION = "1.2.8";
+const APP_VERSION = "1.2.9";
 const BOTTOM_AR: Record<BottomType, string> = {
   Historical: "تاريخي",
   Double: "مزدوج",
