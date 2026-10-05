@@ -18,7 +18,7 @@ import type { Candle, SmartSignal } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
 const SESSION_KEY = "md.session";
-const APP_VERSION = "1.0.0";
+const APP_VERSION = "1.1.0";
 const KIND_TF: Record<TradeKind, string> = {
   scalp: "5m",
   spot: "15m",
@@ -259,8 +259,8 @@ export function Dashboard() {
         النتيجة المعتمدة ✅ · RSI 58–64 · EMA 55 · BOS+FVG · حجم×2.6 · Test WR 72.4% · PF 6.81
       </div>
 
-      <section className="w-full border-b border-line bg-surface">
-        <div className="flex items-center justify-between px-3 py-2">
+      <section className="w-full border-b border-line bg-bg">
+        <div className="flex w-full items-center justify-between px-3 py-2">
           <p className="text-sm font-semibold text-gold-soft">
             {selected.replace("USDT", "")}
             <span className="text-muted">
@@ -268,11 +268,9 @@ export function Dashboard() {
               · {interval} · {tradeKind}
             </span>
           </p>
-          <span className="text-[10px] text-muted">
-            EMA21 أزرق · EMA55 ذهبي · SAR بنفسجي · MACD أسفل الشارت
-          </span>
+          <span className="text-[11px] text-muted">شارت عرضي كامل · المؤشرات تتبع السعر</span>
         </div>
-        <div className="px-3 pb-2">
+        <div className="w-full px-3 pb-2">
           <DeskToolbar
             active={activeTool}
             onSelect={onSelectTool}
@@ -294,7 +292,7 @@ export function Dashboard() {
             bullishHits={bullishHits}
           />
         </div>
-        <div className="h-[38vw] min-h-[320px] max-h-[480px] w-full">
+        <div className="w-full border-y border-line" style={{ height: "min(42vh, 360px)", minHeight: 300 }}>
           <TradingChart candles={candles} levels={chartLevels} guides={guides} />
         </div>
       </section>
